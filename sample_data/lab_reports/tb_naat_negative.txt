@@ -1,0 +1,15 @@
+SYNTHETIC REPORT FOR DEMO USE ONLY - NOT A REAL PATIENT
+
+DISTRICT HEALTH LAB - MOLECULAR DIAGNOSTICS
+Test: Cartridge-Based Nucleic Acid Amplification Test (CBNAAT)
+Specimen: Sputum (early morning sample)
+Date collected: 03-11-2026      Date reported: 04-11-2026
+
+RESULT
+  MTB: NOT DETECTED
+  Rifampicin resistance: NOT APPLICABLE
+
+Sputum smear microscopy (ZN stain): Negative for AFB
+
+Remarks: Sample adequate. A negative result does not exclude TB; correlate clinically.
+Verified by: Lab technologist (synthetic)

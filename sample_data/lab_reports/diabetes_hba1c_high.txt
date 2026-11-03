@@ -1,0 +1,11 @@
+SYNTHETIC REPORT FOR DEMO USE ONLY - NOT A REAL PATIENT
+
+CITY CLINIC LABORATORY - BIOCHEMISTRY
+Date collected: 03-11-2026      Date reported: 03-11-2026
+
+Test                         Result      Unit     Reference range
+HbA1c                        8.2         %        Normal < 5.7 | Prediabetes 5.7-6.4 | Diabetes >= 6.5
+Fasting plasma glucose       164         mg/dL    Normal 70-99 | Prediabetes 100-125 | Diabetes >= 126
+
+Remarks: Values above reference range. Correlate clinically.
+Verified by: Biochemist (synthetic)

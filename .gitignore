@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+data/
+.pytest_cache/
+.adk/
+cloudrun.env.yaml
+sample_data/xrays/*.png
+sample_data/xrays/*.jpg
+sample_data/xrays/*.jpeg

@@ -1,0 +1,11 @@
+# Files NOT uploaded to Google Cloud when deploying with `gcloud run deploy --source .`
+.git/
+.gitignore
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+tests/
+.env
+cloudrun.env.yaml

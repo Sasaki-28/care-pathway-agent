@@ -1,0 +1,16 @@
+SYNTHETIC REPORT FOR DEMO USE ONLY - NOT A REAL PATIENT
+
+CITY CLINIC LABORATORY - HAEMATOLOGY AND BIOCHEMISTRY
+Date collected: 03-11-2026      Date reported: 03-11-2026
+
+Test                         Result      Unit        Reference range
+Total white cell count       16.8        x10^9/L     4.0 - 11.0
+Neutrophils                  84          %           40 - 75
+Lymphocytes                  11          %           20 - 45
+Haemoglobin                  13.9        g/dL        13.0 - 17.0
+Platelets                    312         x10^9/L     150 - 410
+C-reactive protein (CRP)     142         mg/L        < 5
+
+Remarks: Raised white cell count with neutrophilia and markedly raised CRP.
+Correlate clinically.
+Verified by: Pathologist (synthetic)

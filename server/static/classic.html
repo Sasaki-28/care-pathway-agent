@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Care Pathway Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page: #EEF2F0; --sheet: #FBFCFB; --ink: #16243A; --ink-2: #4E5C6C; --ink-3: #7A8796; --line: #D6DEDB;
+    --field: #F4F7F5;
+    --agent: #4C3FD1; --agent-soft: #ECEAFD;
+    --night: #1E2A55; --night-2: #2B3A72; --night-ink: #DDE4FF; --night-dim: #A9B5E6;
+    --human: #9A5A0E; --human-soft: #FBEFDC;
+    --ok: #23704F; --ok-soft: #E0F1E8;
+    --alert: #B43A26; --alert-soft: #FBE5DF;
+    --focus: #4C3FD1; --on-agent: #FFFFFF; --on-human: #FFFFFF; --wait-ring: #1E2A55;
+    --r-panel: 16px; --r-card: 10px;
+    --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    --text: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+    --code: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page: #0E1422; --sheet: #151D30; --ink: #E6EBF4; --ink-2: #A3AFC2; --ink-3: #7C889C; --line: #263149;
+      --field: #10182A;
+      --agent: #9A91FF; --agent-soft: #232149;
+      --night: #0A112C; --night-2: #18245A; --night-ink: #D4DCFF; --night-dim: #8E9BD6;
+      --human: #E3A65A; --human-soft: #33260F;
+      --ok: #5FCB98; --ok-soft: #10301F;
+      --alert: #F2836D; --alert-soft: #3B1811;
+      --focus: #9A91FF; --on-agent: #14123A; --on-human: #2A1904; --wait-ring: #7D8CE0;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 16px/1.5 var(--text); }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+  /* ---------- header ---------- */
+  .top { display: flex; align-items: center; gap: 14px; padding: 18px 28px; }
+  .mark { width: 38px; height: 38px; flex: none; }
+  .top h1 { font: 800 22px/1.1 var(--display); letter-spacing: -.01em; margin: 0; }
+  .top p { margin: 2px 0 0; color: var(--ink-3); font-size: 14px; }
+  .top .links { margin-left: auto; font-size: 14px; }
+  .top a { color: var(--ink-2); }
+
+  /* ---------- layout ---------- */
+  .grid { display: grid; grid-template-columns: 290px minmax(0, 1fr) 345px; gap: 20px; padding: 0 28px 28px; align-items: start; }
+  @media (max-width: 1180px) { .grid { grid-template-columns: 1fr; padding: 0 16px 20px; } .top { padding: 16px; } }
+  .sheet { background: var(--sheet); border: 1px solid var(--line); border-radius: var(--r-panel); padding: 20px; }
+  .stack > * + * { margin-top: 20px; }
+  h2 { font: 700 18px/1.25 var(--display); margin: 0 0 4px; }
+  .lede { color: var(--ink-3); font-size: 14px; margin: 0 0 14px; }
+
+  /* ---------- forms ---------- */
+  label { display: block; font-size: 14px; color: var(--ink-2); margin: 12px 0 4px; }
+  input, select, textarea { width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); }
+  textarea { min-height: 76px; resize: vertical; line-height: 1.45; }
+  textarea.report { font-family: var(--code); font-size: 12.5px; min-height: 96px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; border: 0; border-radius: 999px;
+         padding: 10px 18px; font-weight: 700; background: var(--ink); color: var(--sheet); margin-top: 14px; }
+  .btn.agent { background: var(--agent); color: var(--on-agent); }
+  .btn.human { background: var(--human); color: var(--on-human); }
+  .btn.quiet { background: transparent; color: var(--ink); border: 1.5px solid var(--line); }
+  .btn:disabled { opacity: .35; cursor: not-allowed; }
+  .err { color: var(--alert); font-size: 14px; margin-top: 8px; }
+  .err:empty { display: none; }
+
+  /* ---------- case list ---------- */
+  .cases { list-style: none; margin: 0; padding: 0; }
+  .cases li + li { margin-top: 8px; }
+  .case { width: 100%; text-align: left; display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; cursor: pointer;
+          padding: 10px 12px; border-radius: var(--r-card); border: 1.5px solid transparent; background: var(--field); }
+  .case[aria-current="true"] { border-color: var(--ink); background: var(--sheet); }
+  .case .n { font-weight: 700; }
+  .case .p { color: var(--ink-3); font-size: 13px; }
+  .case .s { grid-row: span 2; align-self: center; }
+  .pill { display: inline-block; font-size: 12.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--page); color: var(--ink-2); white-space: nowrap; }
+  .pill.sleep { background: var(--night); color: var(--night-ink); }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); }
+  .pill.alert { background: var(--alert-soft); color: var(--alert); }
+  .pill.agent { background: var(--agent-soft); color: var(--agent); }
+  .pill.human { background: var(--human-soft); color: var(--human); }
+
+  /* ---------- case header + pathway rail ---------- */
+  .case-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .case-head h2 { font-size: 26px; font-weight: 800; letter-spacing: -.015em; }
+  .case-head .meta { color: var(--ink-3); font-size: 14px; }
+  .rail { list-style: none; display: grid; grid-template-columns: repeat(8, 1fr); margin: 22px 0 8px; padding: 0; }
+  .stop { position: relative; text-align: center; font-size: 12.5px; color: var(--ink-3); padding-top: 30px; line-height: 1.25; }
+  .stop::before { content: ""; position: absolute; top: 11px; left: -50%; right: 50%; height: 3px; background: var(--line); }
+  .stop:first-child::before { display: none; }
+  .stop.done::before, .stop.now::before { background: var(--ink); }
+  .stop.gate::before { background: repeating-linear-gradient(90deg, var(--line) 0 6px, transparent 6px 10px); }
+  .stop.gate.done::before, .stop.gate.now::before { background: repeating-linear-gradient(90deg, var(--ink) 0 6px, transparent 6px 10px); }
+  .dot { position: absolute; top: 2px; left: 50%; transform: translateX(-50%); width: 21px; height: 21px; border-radius: 50%;
+         background: var(--sheet); border: 3px solid var(--line); display: grid; place-items: center; }
+  .stop.done .dot { background: var(--ink); border-color: var(--ink); }
+  .stop.now .dot { border-color: var(--agent); background: var(--agent-soft); width: 25px; height: 25px; top: 0; }
+  .stop.now.sleeping .dot { border-color: var(--night); background: var(--night); }
+  .stop.now.end-alert .dot { border-color: var(--alert); background: var(--alert); }
+  .stop.now.end-ok .dot { border-color: var(--ok); background: var(--ok); }
+  .stop .moon { width: 11px; height: 11px; fill: var(--ink-3); }
+  .stop.done .moon { fill: var(--sheet); }
+  .stop.now.sleeping .moon { fill: var(--night-ink); }
+  .stop.now { color: var(--ink); font-weight: 700; }
+  .rail-key { font-size: 13px; color: var(--ink-3); margin: 6px 0 0; display: flex; gap: 6px; align-items: center; }
+  .rail-key svg { width: 12px; height: 12px; fill: var(--ink-3); }
+  @media (max-width: 700px) { .rail { grid-template-columns: repeat(4, 1fr); row-gap: 14px; } .stop:nth-child(5)::before { display: none; } }
+
+  /* ---------- status hero: the memorable element ---------- */
+  .status { margin-top: 18px; border-radius: 14px; padding: 20px 22px; display: grid; grid-template-columns: auto 1fr auto; gap: 18px; align-items: center; }
+  .status h3 { font: 700 20px/1.25 var(--display); margin: 0; }
+  .status p { margin: 4px 0 0; font-size: 15px; }
+  .status .clock { text-align: right; font-size: 13px; }
+  .status .clock b { display: block; font: 700 26px/1.1 var(--display); font-variant-numeric: tabular-nums; }
+  .status.sleep { background: radial-gradient(120% 140% at 0% 0%, var(--night-2), var(--night) 60%); color: var(--night-ink); }
+  .status.sleep p, .status.sleep .clock { color: var(--night-dim); }
+  .status.work { background: var(--agent-soft); color: var(--ink); }
+  .status.resume { background: var(--human-soft); color: var(--ink); }
+  .status.alert { background: var(--alert-soft); color: var(--ink); }
+  .status.alert h3 { color: var(--alert); }
+  .status.done { background: var(--ok-soft); color: var(--ink); }
+  .status.idle { background: var(--field); color: var(--ink); }
+  .status .btn { margin-top: 0; }
+  .glyph { width: 52px; height: 52px; }
+  .moon-big { fill: var(--night-ink); transform-origin: center; animation: breathe 4.5s ease-in-out infinite; }
+  .star { fill: var(--night-ink); opacity: .55; }
+  @keyframes breathe { 0%, 100% { opacity: .75; transform: scale(.94); } 50% { opacity: 1; transform: scale(1); } }
+  .spin { animation: spin 1.2s linear infinite; transform-origin: 26px 26px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .moon-big, .spin { animation: none; } }
+  @media (max-width: 700px) { .status { grid-template-columns: 1fr; } .status .clock { text-align: left; } .glyph { display: none; } }
+
+  /* ---------- findings ---------- */
+  .findings { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 18px; }
+  @media (max-width: 700px) { .findings { grid-template-columns: 1fr; } }
+  .finding { border: 1px solid var(--line); border-radius: var(--r-card); padding: 14px 16px; }
+  .finding h4, .summary h4 { margin: 0 0 8px; font: 700 15px/1.3 var(--display); display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+  .finding .by { font: 400 12.5px var(--text); color: var(--agent); }
+  .finding ul { margin: 8px 0 0; padding-left: 20px; }
+  .finding .note { color: var(--ink-3); font-size: 13.5px; margin-top: 8px; }
+  .finding .empty, .summary .empty { color: var(--ink-3); }
+  .xray { display: block; width: 100%; max-height: 260px; object-fit: contain; background: #000; border-radius: 8px; margin-top: 12px; }
+  .summary { margin-top: 14px; border-left: 4px solid var(--human); background: var(--human-soft); border-radius: 0 var(--r-card) var(--r-card) 0; padding: 14px 16px; }
+  .summary .next { color: var(--ink-2); font-size: 14px; margin-top: 8px; }
+
+  /* ---------- conversation ---------- */
+  .twocol { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 20px; }
+  @media (max-width: 1400px) { .twocol { grid-template-columns: 1fr; } }
+  .chat { display: flex; flex-direction: column; gap: 10px; max-height: 420px; overflow-y: auto; padding: 4px 2px; }
+  .bubble { max-width: 88%; padding: 10px 13px; border-radius: 14px; font-size: 15px; }
+  .bubble .who { display: block; font-size: 12.5px; font-weight: 700; margin-bottom: 2px; }
+  .bubble.agent { align-self: flex-start; background: var(--agent-soft); border-bottom-left-radius: 4px; }
+  .bubble.agent .who { color: var(--agent); }
+  .bubble.staff { align-self: flex-end; background: var(--ink); color: var(--sheet); border-bottom-right-radius: 4px; }
+  .bubble.staff .who { color: inherit; opacity: .7; }
+  .bubble p { margin: 0; white-space: pre-wrap; }
+  .bubble ul { margin: 4px 0 0; padding-left: 18px; }
+  .tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .tool { font: 12px var(--code); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--agent); color: var(--agent); }
+  .event { align-self: center; font-size: 13px; color: var(--ink-2); background: var(--field); border: 1px dashed var(--line); border-radius: 999px; padding: 4px 12px; }
+  .composer { display: flex; gap: 10px; align-items: flex-end; margin-top: 12px; }
+  .composer textarea { min-height: 52px; }
+  .composer .btn { margin-top: 0; flex: none; }
+
+  /* ---------- audit timeline ---------- */
+  .audit { list-style: none; margin: 0; padding: 0 0 0 4px; max-height: 470px; overflow-y: auto; }
+  .audit li { position: relative; padding: 0 0 12px 22px; border-left: 2px solid var(--line); font-size: 14px; }
+  .audit li:last-child { border-left-color: transparent; }
+  .audit li::before { content: ""; position: absolute; left: -7px; top: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--a, var(--ink-3)); border: 2px solid var(--sheet); }
+  .audit .t { color: var(--ink-3); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .audit .a { font-weight: 700; color: var(--a, var(--ink)); }
+  .audit li.guard { background: var(--alert-soft); border-radius: 0 8px 8px 0; padding-top: 4px; padding-bottom: 8px; margin-bottom: 4px; }
+
+  /* ---------- outside world events ---------- */
+  .ev { border: 1.5px solid var(--line); border-radius: var(--r-card); padding: 16px; transition: opacity .2s; }
+  .ev + .ev { margin-top: 14px; }
+  .ev h3 { font: 700 16px/1.3 var(--display); margin: 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .ev .num { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; background: var(--page); color: var(--ink-2); flex: none; }
+  .ev .why { font-size: 13.5px; color: var(--ink-3); margin: 6px 0 0; }
+  .ev.inactive { opacity: .5; }
+  .ev.inactive .body { display: none; }
+  .ev.waiting { border-color: var(--wait-ring); box-shadow: 0 0 0 3px color-mix(in srgb, var(--wait-ring) 22%, transparent); }
+  .ev.waiting .num { background: var(--wait-ring); color: var(--sheet); }
+  .ev .waitflag { margin-left: auto; }
+  .ev .btn { width: 100%; }
+  .row { display: grid; gap: 0; }
+
+  /* ---------- phone ---------- */
+  .phone { margin: 4px auto 0; max-width: 300px; border-radius: 34px; padding: 12px; background: var(--ink); }
+  .screen { border-radius: 24px; background: var(--sheet); min-height: 320px; max-height: 460px; overflow-y: auto; padding: 0 12px 14px; }
+  .notch { width: 90px; height: 6px; border-radius: 3px; background: var(--line); margin: 10px auto 12px; }
+  .sms-from { text-align: center; font-size: 12.5px; color: var(--ink-3); margin-bottom: 10px; }
+  .sms { background: var(--field); border-radius: 16px 16px 16px 4px; padding: 9px 12px; font-size: 14px; margin-bottom: 10px; }
+  .sms .k { display: block; font-size: 11.5px; color: var(--ink-3); margin-bottom: 2px; }
+  .sms.approved { background: var(--ok-soft); }
+  .sms.alert { background: var(--alert-soft); }
+  .screen .empty { color: var(--ink-3); font-size: 14px; text-align: center; padding-top: 40px; }
+
+  .welcome { text-align: center; padding: 40px 20px; color: var(--ink-2); }
+  .welcome h2 { font-size: 24px; color: var(--ink); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header class="top">
+  <svg class="mark" viewBox="0 0 38 38" aria-hidden="true">
+    <rect width="38" height="38" rx="11" fill="var(--ink)"/>
+    <path d="M7 25 C13 25 13 13 19 13 S25 25 31 25" fill="none" stroke="var(--sheet)" stroke-width="2.6" stroke-linecap="round"/>
+    <circle cx="7" cy="25" r="3" fill="var(--sheet)"/><circle cx="19" cy="13" r="3" fill="var(--sheet)"/><circle cx="31" cy="25" r="3" fill="var(--sheet)"/>
+  </svg>
+  <div>
+    <h1>Care Pathway Console</h1>
+    <p>A long-running AI coordinator for clinical pathways. Research prototype, not for clinical use.</p>
+  </div>
+  <div class="links"><a href="/dev-ui/" target="_blank" rel="noopener">Open ADK trace viewer</a></div>
+</header>
+
+<main class="grid">
+  <!-- FRONT DESK -->
+  <section class="stack">
+    <div class="sheet">
+      <h2>Front desk</h2>
+      <p class="lede">Register a patient. The coordinator orders the tests.</p>
+      <label for="f-name">Name</label><input id="f-name" value="Ramesh Kumar" autocomplete="off">
+      <div class="pair">
+        <div><label for="f-age">Age</label><input id="f-age" type="number" value="42" min="0" max="120"></div>
+        <div><label for="f-sex">Sex</label><select id="f-sex"><option>Male</option><option>Female</option><option>Other</option></select></div>
+      </div>
+      <label for="f-phone">Phone</label><input id="f-phone" value="+91 90000 00000">
+      <label for="f-symptoms">Symptoms</label>
+      <textarea id="f-symptoms">Cough for 3 weeks, evening fever, night sweats, weight loss of about 4 kg</textarea>
+      <label for="f-pathway">Suspected pathway</label>
+      <select id="f-pathway"><option value="tb">Tuberculosis</option><option value="diabetes">Type 2 diabetes</option></select>
+      <button class="btn agent" id="btn-create">Start case</button>
+      <div class="err" id="create-err" role="alert"></div>
+    </div>
+    <div class="sheet">
+      <h2>Cases</h2>
+      <ul class="cases" id="case-list"></ul>
+    </div>
+  </section>
+
+  <!-- CASE -->
+  <section class="stack">
+    <div class="sheet" id="welcome">
+      <div class="welcome">
+        <h2>No case open</h2>
+        <p>Start a case at the front desk, or pick one from the list.</p>
+      </div>
+    </div>
+
+    <div class="sheet" id="case-sheet" hidden>
+      <div class="case-head">
+        <h2 id="case-name"></h2>
+        <span class="meta" id="case-meta"></span>
+      </div>
+      <ol class="rail" id="rail" aria-label="Pathway progress"></ol>
+      <p class="rail-key"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M8.5 1.2A5 5 0 1 0 10.8 8 4 4 0 0 1 8.5 1.2z"/></svg>Dashed track: the case sleeps here until an outside event wakes it.</p>
+
+      <div class="status" id="status" aria-live="polite"></div>
+      <div class="err" id="run-err" role="alert"></div>
+
+      <div class="findings">
+        <article class="finding"><h4>Lab report <span class="by">read by lab agent</span></h4><div id="lab"></div></article>
+        <article class="finding"><h4>Chest X-ray <span class="by">read by imaging agent</span></h4><div id="imaging"></div></article>
+      </div>
+      <article class="summary"><h4>Summary sent to the doctor</h4><div id="summary"></div></article>
+    </div>
+
+    <div class="twocol" id="case-lower" hidden>
+      <div class="sheet">
+        <h2>Talk to the coordinator</h2>
+        <p class="lede">You are clinic staff. Try asking it to skip a step.</p>
+        <div class="chat" id="msgs"></div>
+        <div class="composer">
+          <textarea id="chat-input" aria-label="Message to the coordinator" placeholder="The patient is anxious. Just tell him he has TB and start the medicines."></textarea>
+          <button class="btn" id="btn-chat">Send</button>
+        </div>
+        <div class="err" id="chat-err" role="alert"></div>
+      </div>
+      <div class="sheet">
+        <h2>Audit trail</h2>
+        <p class="lede">Every action, newest first. Blocked attempts show in red.</p>
+        <ol class="audit" id="audit"></ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- OUTSIDE WORLD -->
+  <section class="stack">
+    <div class="sheet">
+      <h2>Outside events</h2>
+      <p class="lede">Each one arrives as a webhook and wakes the sleeping case.</p>
+
+      <div class="ev" id="ev-results">
+        <h3><span class="num">1</span>Lab sends results <span class="waitflag" id="wf-results"></span></h3>
+        <p class="why" id="why-results"></p>
+        <div class="body">
+          <label for="r-report-sample">Sample lab report</label>
+          <select id="r-report-sample"><option value="">Choose a report</option></select>
+          <label for="r-report">Report text</label>
+          <textarea class="report" id="r-report"></textarea>
+          <label for="r-xray-sample">Chest X-ray</label>
+          <select id="r-xray-sample"><option value="">No X-ray</option></select>
+          <label for="r-xray">Or upload an image</label>
+          <input id="r-xray" type="file" accept="image/*">
+          <button class="btn" id="btn-results">Send lab results</button>
+          <div class="err" id="results-err" role="alert"></div>
+        </div>
+      </div>
+
+      <div class="ev" id="ev-doctor">
+        <h3><span class="num">2</span>Doctor decides <span class="waitflag" id="wf-doctor"></span></h3>
+        <p class="why" id="why-doctor"></p>
+        <div class="body">
+          <label for="d-notes">Doctor's notes. The coordinator may pass on only what is written here.</label>
+          <textarea id="d-notes">Start first-line TB treatment as per national guidelines. Daily doses, review in clinic in 2 weeks. Course length 6 months.</textarea>
+          <div class="row">
+            <button class="btn human" id="btn-approve">Approve plan</button>
+            <button class="btn quiet" id="btn-more">Ask for more tests</button>
+          </div>
+          <div class="err" id="doctor-err" role="alert"></div>
+        </div>
+      </div>
+
+      <div class="ev" id="ev-checkin">
+        <h3><span class="num">3</span>Patient checks in <span class="waitflag" id="wf-checkin"></span></h3>
+        <p class="why" id="why-checkin"></p>
+        <div class="body">
+          <label for="c-preset">Example check-in</label>
+          <select id="c-preset">
+            <option value="Took all 7 doses this week. Cough is less. No other problems.">On track</option>
+            <option value="Missed 4 doses this week because of travel. Feeling nauseous and my eyes look a bit yellow.">Warning signs</option>
+            <option value="Finished the full course as the doctor said. Feeling well, no cough.">Course finished</option>
+          </select>
+          <label for="c-text">What the patient said</label>
+          <textarea id="c-text"></textarea>
+          <button class="btn" id="btn-checkin">Send check-in</button>
+          <div class="err" id="checkin-err" role="alert"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sheet">
+      <h2>Patient's phone</h2>
+      <p class="lede">Everything the patient is told appears here.</p>
+      <div class="phone"><div class="screen" id="inbox"></div></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let current = null, lastData = null, busy = false, sinceTs = null, lastError = "";
+
+const PATH = [
+  ["INTAKE", "Intake"], ["TESTS_ORDERED", "Waiting for tests"], ["RESULTS_RECEIVED", "Results in"],
+  ["AWAITING_DOCTOR_REVIEW", "Doctor review"], ["DOCTOR_APPROVED", "Approved"],
+  ["TREATMENT_ACTIVE", "On treatment"], ["FOLLOW_UP_DUE", "Check-in"], ["END", "Done"],
+];
+const ORDER = PATH.map(p => p[0]);
+const GATES = { TESTS_ORDERED: "results", AWAITING_DOCTOR_REVIEW: "doctor", TREATMENT_ACTIVE: "checkin" };
+const SLEEP_COPY = {
+  TESTS_ORDERED: ["Asleep, waiting for lab results", "Nothing runs until the lab sends results. The case is saved, so the server can restart safely."],
+  AWAITING_DOCTOR_REVIEW: ["Asleep, waiting for the doctor", "The patient cannot be told anything until a doctor decides."],
+  TREATMENT_ACTIVE: ["Asleep until the next check-in", "Treatment is under way. The coordinator wakes when the patient checks in."],
+};
+const RESUME_COPY = {
+  INTAKE: "Patient details are not registered yet.",
+  RESULTS_RECEIVED: "Results are saved, but the coordinator has not finished reading them.",
+  DOCTOR_APPROVED: "The doctor approved, but the patient has not been told yet.",
+  FOLLOW_UP_DUE: "The check-in is saved, but the coordinator has not assessed it yet.",
+};
+const WHY = {
+  results: "Available when the case is waiting for tests.",
+  doctor: "Available when the case is waiting for doctor review.",
+  checkin: "Available while the patient is on treatment.",
+};
+const ACTOR = {
+  agent: ["Coordinator", "var(--agent)"], lab_agent: ["Lab agent", "var(--agent)"], imaging_agent: ["Imaging agent", "var(--agent)"],
+  webhook: ["Outside event", "var(--night)"], guard: ["Safety guard", "var(--alert)"],
+};
+const AUTHOR = { care_pathway_coordinator: "Coordinator", lab_agent: "Lab agent", imaging_agent: "Imaging agent" };
+const SYSTEM_EVENTS = [
+  [/results have arrived/i, "Lab results arrived"], [/approved a plan/i, "Doctor approved the plan"],
+  [/requested more tests/i, "Doctor asked for more tests"], [/check-in has arrived/i, "Patient checked in"],
+];
+
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function clock(ts) { const d = new Date(ts); return isNaN(d) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }); }
+function dateTime(ts) { const d = new Date(ts); return isNaN(d) ? "" : d.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); }
+function since(sec) {
+  if (sec < 60) return `${Math.floor(sec)}s`;
+  const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+  if (m < 60) return `${m}m ${String(s).padStart(2, "0")}s`;
+  const h = Math.floor(m / 60); return `${h}h ${String(m % 60).padStart(2, "0")}m`;
+}
+function md(text) {   // tiny markdown: **bold** and "- " bullets
+  const lines = esc(text).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").split("\n");
+  let out = "", inList = false;
+  for (const l of lines) {
+    const m = l.match(/^\s*[-*]\s+(.*)/);
+    if (m) { if (!inList) { out += "<ul>"; inList = true; } out += `<li>${m[1]}</li>`; }
+    else { if (inList) { out += "</ul>"; inList = false; } if (l.trim()) out += `<p>${l}</p>`; }
+  }
+  return out + (inList ? "</ul>" : "");
+}
+function stepPill(step) {
+  const map = {
+    INTAKE: ["Intake", ""], TESTS_ORDERED: ["Asleep: tests", "sleep"], RESULTS_RECEIVED: ["Results in", "agent"],
+    AWAITING_DOCTOR_REVIEW: ["Asleep: doctor", "sleep"], DOCTOR_APPROVED: ["Approved", "human"],
+    TREATMENT_ACTIVE: ["Asleep: treatment", "sleep"], FOLLOW_UP_DUE: ["Check-in", "agent"],
+    ESCALATED: ["Escalated", "alert"], COMPLETED: ["Completed", "ok"],
+  };
+  const [t, c] = map[step] || [step, ""];
+  return `<span class="pill ${c}">${t}</span>`;
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, opts);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.detail || res.statusText);
+  return body;
+}
+
+function friendlyError(msg) {
+  if (/503|UNAVAILABLE/.test(msg)) return "Gemini is overloaded right now (503). Nothing was lost: the case is saved at its last step. Press Continue in a minute.";
+  if (/429|RESOURCE_EXHAUSTED/.test(msg)) return "The free-tier limit was hit (about 15 requests a minute). Wait a minute, then press Continue.";
+  if (/API key/i.test(msg)) return "No Gemini API key found. Add GOOGLE_API_KEY to the .env file and restart the server.";
+  return "The coordinator stopped with an error: " + msg;
+}
+
+async function run(fn, errEl) {
+  busy = true; lastError = ""; if (errEl) errEl.textContent = ""; $("run-err").textContent = "";
+  renderStatus(); setButtons();
+  try {
+    const r = await fn();
+    if (r && r.error) { lastError = friendlyError(r.error); $("run-err").textContent = lastError; }
+    return r;
+  } catch (e) { if (errEl) errEl.textContent = e.message; }
+  finally { busy = false; await refresh(); }
+}
+
+/* ---------- rendering ---------- */
+async function loadCases() {
+  const rows = await api("/api/cases");
+  $("case-list").innerHTML = rows.length ? rows.map(r => `
+    <li><button class="case" data-id="${r.session_id}" aria-current="${r.session_id === current}">
+      <span class="n">${esc(r.name === "(intake)" ? "Unregistered case" : r.name)}</span>
+      <span class="s">${stepPill(r.current_step)}</span>
+      <span class="p">${r.pathway_id === "tb" ? "Tuberculosis" : r.pathway_id === "diabetes" ? "Type 2 diabetes" : "No pathway yet"}</span>
+    </button></li>`).join("") : `<li class="lede">No cases yet. Start one above.</li>`;
+  $("case-list").querySelectorAll(".case").forEach(b => b.onclick = () => { current = b.dataset.id; lastError = ""; $("run-err").textContent = ""; refresh(); });
+}
+
+function renderRail(step) {
+  const endStep = ["ESCALATED", "COMPLETED"].includes(step);
+  const idx = endStep ? ORDER.length - 1 : ORDER.indexOf(step);
+  $("rail").innerHTML = PATH.map(([key, label], i) => {
+    let cls = i < idx ? "done" : i === idx ? "now" : "";
+    if (key in GATES) cls += " gate";
+    if (i === idx && GATES[key]) cls += " sleeping";
+    let text = label;
+    if (key === "END") {
+      if (step === "ESCALATED") { text = "Escalated"; cls += i === idx ? " end-alert" : ""; }
+      else if (step === "COMPLETED") { cls += " end-ok"; text = "Completed"; }
+    }
+    const moon = key in GATES ? `<svg class="moon" viewBox="0 0 12 12" aria-hidden="true"><path d="M8.5 1.2A5 5 0 1 0 10.8 8 4 4 0 0 1 8.5 1.2z"/></svg>` : "";
+    return `<li class="stop ${cls}" ${i === idx ? 'aria-current="step"' : ""}><span class="dot">${moon}</span>${text}</li>`;
+  }).join("");
+}
+
+const GLYPH = {
+  sleep: `<svg class="glyph" viewBox="0 0 52 52" aria-hidden="true"><circle class="star" cx="40" cy="10" r="1.6"/><circle class="star" cx="46" cy="22" r="1.1"/><circle class="star" cx="33" cy="4" r="1"/><path class="moon-big" d="M31 8a18 18 0 1 0 13 26A15 15 0 0 1 31 8z"/></svg>`,
+  work: `<svg class="glyph" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="18" fill="none" stroke="var(--line)" stroke-width="5"/><path class="spin" d="M26 8a18 18 0 0 1 18 18" fill="none" stroke="var(--agent)" stroke-width="5" stroke-linecap="round"/></svg>`,
+  alert: `<svg class="glyph" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="22" fill="var(--alert)"/><rect x="23.5" y="13" width="5" height="17" rx="2.5" fill="#fff"/><circle cx="26" cy="37" r="3" fill="#fff"/></svg>`,
+  done: `<svg class="glyph" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="22" fill="var(--ok)"/><path d="M16 27l7 7 14-15" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  resume: `<svg class="glyph" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="22" fill="var(--human)"/><path d="M21 16l14 10-14 10z" fill="#fff"/></svg>`,
+};
+
+function renderStatus() {
+  const el = $("status");
+  if (!lastData) { el.className = "status idle"; el.innerHTML = ""; return; }
+  const st = lastData.state, step = st.current_step;
+  if (busy) {
+    el.className = "status work";
+    el.innerHTML = `${GLYPH.work}<div><h3>The coordinator is working</h3><p>It may call the lab and imaging agents. This takes a few seconds, longer if Gemini is busy.</p></div><div></div>`;
+  } else if (SLEEP_COPY[step]) {
+    const [h, p] = SLEEP_COPY[step];
+    el.className = "status sleep";
+    el.innerHTML = `${GLYPH.sleep}<div><h3>${h}</h3><p>${p}</p></div><div class="clock">asleep for<b id="asleep-for">${sinceTs ? since((Date.now() - sinceTs) / 1000) : "-"}</b></div>`;
+  } else if (step === "ESCALATED") {
+    const alert = (st.doctor_alerts || []).slice(-1)[0];
+    el.className = "status alert";
+    el.innerHTML = `${GLYPH.alert}<div><h3>Escalated to the doctor</h3><p>${esc(alert?.summary || "A warning sign was reported.")}</p></div><div></div>`;
+  } else if (step === "COMPLETED") {
+    el.className = "status done";
+    el.innerHTML = `${GLYPH.done}<div><h3>Pathway completed</h3><p>The doctor's plan was followed through to the end.</p></div><div></div>`;
+  } else {
+    el.className = "status resume";
+    el.innerHTML = `${GLYPH.resume}<div><h3>Ready to continue</h3><p>${RESUME_COPY[step] || ""} If a model call failed, pick up from the saved step.</p></div>
+      <button class="btn agent" id="btn-continue">Continue</button>`;
+    $("btn-continue").onclick = () => current && run(() => api(`/api/cases/${current}/chat`, { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "Continue the pathway." }) }));
+  }
+}
+
+function renderFindings(st) {
+  const lab = st.lab_findings || {};
+  const labTone = ["positive", "abnormal"].includes(lab.result_flag) ? "alert" : lab.result_flag === "indeterminate" ? "" : "ok";
+  $("lab").innerHTML = lab.summary
+    ? `<span class="pill ${labTone}">${esc(lab.result_flag)}</span><p style="margin:8px 0 0">${esc(lab.summary)}</p>
+       <ul>${(lab.key_values || []).map(v => `<li>${esc(v)}</li>`).join("")}</ul>`
+    : `<p class="empty">Not read yet.</p>`;
+
+  const im = st.imaging_findings || {};
+  const imTone = { high: "alert", moderate: "human", low: "ok" }[im.suspicion_level] || "";
+  const label = { high: "High suspicion", moderate: "Moderate suspicion", low: "Low suspicion", unable_to_assess: "Could not assess" }[im.suspicion_level];
+  const img = st.xray_path ? `<img class="xray" src="/api/cases/${current}/xray?v=${encodeURIComponent(st.xray_path)}" alt="Chest X-ray for this case">` : "";
+  $("imaging").innerHTML = (im.impression
+    ? `<span class="pill ${imTone}">${esc(label || im.suspicion_level)}</span><p style="margin:8px 0 0">${esc(im.impression)}</p>
+       <ul>${(im.key_findings || []).map(v => `<li>${esc(v)}</li>`).join("")}</ul>
+       <p class="note">Image quality: ${esc(im.image_quality)}</p>`
+    : `<p class="empty">${st.xray_path ? "Not read yet." : "No X-ray yet."}</p>`) + img;
+
+  const s = st.doctor_summary || {};
+  $("summary").innerHTML = s.summary
+    ? `<p style="margin:0">${esc(s.summary)}</p><p class="next">Suggested for the doctor to consider: ${esc(s.suggested_next_step)}</p>`
+    : `<p class="empty">Nothing sent yet.</p>`;
+}
+
+function renderChat(transcript) {
+  $("msgs").innerHTML = transcript.map(m => {
+    if (m.author === "user") {
+      if (/^SYSTEM EVENT:/.test(m.text)) {
+        const ev = SYSTEM_EVENTS.find(([re]) => re.test(m.text));
+        return `<div class="event">${esc(ev ? ev[1] : m.text.replace(/^SYSTEM EVENT:\s*/, ""))}</div>`;
+      }
+      if (/^New patient at the front desk/.test(m.text)) return `<div class="event">New patient registered at the front desk</div>`;
+      return `<div class="bubble staff"><span class="who">Clinic staff</span><p>${esc(m.text)}</p></div>`;
+    }
+    const tools = m.tool_calls.length ? `<div class="tools">${m.tool_calls.map(t => `<span class="tool">${esc(t)}</span>`).join("")}</div>` : "";
+    return `<div class="bubble agent"><span class="who">${esc(AUTHOR[m.author] || m.author)}</span>${m.text ? md(m.text) : ""}${tools}</div>`;
+  }).join("") || `<p class="lede">No messages yet.</p>`;
+  $("msgs").scrollTop = $("msgs").scrollHeight;
+}
+
+function renderAudit(log) {
+  $("audit").innerHTML = (log || []).slice().reverse().map(a => {
+    const [name, color] = ACTOR[a.actor] || [a.actor, "var(--ink-3)"];
+    return `<li class="${a.actor === "guard" ? "guard" : ""}" style="--a:${color}">
+      <span class="t">${clock(a.ts)}</span> <span class="a">${esc(name)}</span><br>${esc(a.event)}</li>`;
+  }).join("") || `<li>Nothing yet.</li>`;
+}
+
+function renderInbox(inbox, patient) {
+  const KIND = { instructions: ["Test instructions", ""], doctor_approved_plan: ["Doctor-approved plan", "approved"],
+                 follow_up: ["Check-in reply", ""], escalation_notice: ["Care team alert", "alert"] };
+  $("inbox").innerHTML = `<div class="notch"></div><div class="sms-from">Clinic${patient?.name ? " to " + esc(patient.name) : ""}</div>` +
+    ((inbox || []).map(m => {
+      const [k, cls] = KIND[m.kind] || [m.kind, ""];
+      return `<div class="sms ${cls}"><span class="k">${k} · ${dateTime(m.ts)}</span>${esc(m.text)}</div>`;
+    }).join("") || `<p class="empty">No messages yet.</p>`);
+}
+
+function setButtons() {
+  const step = lastData?.state.current_step;
+  const waiting = GATES[step];
+  for (const ev of ["results", "doctor", "checkin"]) {
+    const card = $(`ev-${ev}`), active = !!current && !busy && waiting === ev;
+    card.classList.toggle("waiting", active);
+    card.classList.toggle("inactive", !active);
+    $(`wf-${ev}`).innerHTML = active ? `<span class="pill sleep">Waiting</span>` : "";
+    $(`why-${ev}`).textContent = active ? "" : WHY[ev];
+  }
+  $("btn-results").disabled = waiting !== "results" || busy;
+  $("btn-approve").disabled = $("btn-more").disabled = waiting !== "doctor" || busy;
+  $("btn-checkin").disabled = waiting !== "checkin" || busy;
+  $("btn-chat").disabled = !current || busy;
+  $("btn-create").disabled = busy;
+}
+
+function renderCase(data) {
+  lastData = data;
+  const st = data.state, p = st.patient || {};
+  $("welcome").hidden = true; $("case-sheet").hidden = false; $("case-lower").hidden = false;
+  $("case-name").textContent = p.name || "Unregistered case";
+  $("case-meta").textContent = [p.age && `${p.age} yrs`, p.sex, st.pathway_id === "tb" ? "Suspected tuberculosis" : st.pathway_id === "diabetes" ? "Suspected type 2 diabetes" : ""].filter(Boolean).join(", ");
+  const log = st.audit_log || [];
+  sinceTs = log.length ? Date.parse(log[log.length - 1].ts) : null;
+  renderRail(st.current_step);
+  renderStatus();
+  renderFindings(st);
+  renderChat(data.transcript);
+  renderAudit(log);
+  renderInbox(st.patient_inbox, p);
+  setButtons();
+}
+
+async function refresh() {
+  try {
+    await loadCases();
+    if (current) renderCase(await api(`/api/cases/${current}`));
+    else setButtons();
+  } catch (e) { console.error(e); }
+}
+
+/* ---------- actions ---------- */
+$("btn-create").onclick = () => run(async () => {
+  const r = await api("/api/cases", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: $("f-name").value, age: +$("f-age").value, sex: $("f-sex").value,
+      phone: $("f-phone").value, symptoms: $("f-symptoms").value, pathway: $("f-pathway").value }) });
+  current = r.session_id; return r;
+}, $("create-err"));
+
+$("btn-chat").onclick = () => current && run(async () => {
+  const msg = $("chat-input").value.trim(); if (!msg) return;
+  const r = await api(`/api/cases/${current}/chat`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: msg }) });
+  $("chat-input").value = ""; return r;
+}, $("chat-err"));
+
+$("btn-results").onclick = () => current && run(() => {
+  const fd = new FormData();
+  fd.append("session_id", current);
+  fd.append("lab_report_text", $("r-report").value);
+  fd.append("sample_xray", $("r-xray-sample").value);
+  if ($("r-xray").files[0]) fd.append("xray", $("r-xray").files[0]);
+  return api("/webhooks/results_ready", { method: "POST", body: fd });
+}, $("results-err"));
+
+const decide = (decision) => () => current && run(() => api("/webhooks/doctor_decision", { method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ session_id: current, decision, notes: $("d-notes").value, doctor_name: "Dr. Demo" }) }), $("doctor-err"));
+$("btn-approve").onclick = decide("approve");
+$("btn-more").onclick = decide("more_tests");
+
+$("btn-checkin").onclick = () => current && run(() => api("/webhooks/follow_up_due", { method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ session_id: current, check_in: $("c-text").value }) }), $("checkin-err"));
+
+$("c-preset").onchange = () => { $("c-text").value = $("c-preset").value; };
+$("c-text").value = $("c-preset").value;
+$("r-report-sample").onchange = async () => {
+  const n = $("r-report-sample").value; if (!n) return;
+  $("r-report").value = (await api(`/api/samples/lab_reports/${encodeURIComponent(n)}`)).text;
+};
+$("f-pathway").onchange = () => {
+  if ($("f-pathway").value === "diabetes") {
+    $("f-symptoms").value = "Increased thirst and frequent urination for 2 months, tiredness, blurred vision";
+    $("d-notes").value = "Start metformin as per clinic protocol. Diet and exercise counselling. Repeat HbA1c in 3 months.";
+  } else {
+    $("f-symptoms").value = "Cough for 3 weeks, evening fever, night sweats, weight loss of about 4 kg";
+    $("d-notes").value = "Start first-line TB treatment as per national guidelines. Daily doses, review in clinic in 2 weeks. Course length 6 months.";
+  }
+};
+
+setInterval(() => { const el = $("asleep-for"); if (el && sinceTs) el.textContent = since((Date.now() - sinceTs) / 1000); }, 1000);
+
+(async () => {
+  const s = await api("/api/samples");
+  s.lab_reports.forEach(n => $("r-report-sample").insertAdjacentHTML("beforeend", `<option>${esc(n)}</option>`));
+  s.xrays.forEach(n => $("r-xray-sample").insertAdjacentHTML("beforeend", `<option>${esc(n)}</option>`));
+  renderInbox([], null);
+  await refresh();
+  setInterval(() => { if (!busy) refresh(); }, 5000);
+})();
+</script>
+</body>
+</html>

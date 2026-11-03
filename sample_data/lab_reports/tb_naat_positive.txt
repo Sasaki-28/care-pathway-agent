@@ -1,0 +1,16 @@
+SYNTHETIC REPORT FOR DEMO USE ONLY - NOT A REAL PATIENT
+
+DISTRICT HEALTH LAB - MOLECULAR DIAGNOSTICS
+Test: Cartridge-Based Nucleic Acid Amplification Test (CBNAAT)
+Specimen: Sputum (spot sample)
+Date collected: 03-11-2026      Date reported: 04-11-2026
+
+RESULT
+  MTB: DETECTED
+  Bacterial load: LOW
+  Rifampicin resistance: NOT DETECTED
+
+Sputum smear microscopy (ZN stain): 1+
+
+Remarks: Sample adequate. Result to be interpreted with clinical findings.
+Verified by: Lab technologist (synthetic)
