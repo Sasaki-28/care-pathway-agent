@@ -1,0 +1,16 @@
+SYNTHETIC REPORT FOR DEMO USE ONLY - NOT A REAL PATIENT
+
+CITY CLINIC - BLOOD PRESSURE AND BIOCHEMISTRY
+Date: 03-11-2026
+
+Clinic blood pressure (seated, 3 readings): 162/100, 158/98, 160/96 mmHg
+Reference: normal below 130/85 mmHg
+
+Test                         Result      Unit       Reference range
+Serum creatinine             1.0         mg/dL      0.7 - 1.3
+Urine protein (dipstick)     Trace                  Negative
+Total cholesterol            232         mg/dL      < 200
+LDL cholesterol              154         mg/dL      < 100
+
+Remarks: Persistently raised blood pressure. Kidney function within range. Raised cholesterol.
+Verified by: Biochemist (synthetic)

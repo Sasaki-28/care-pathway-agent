@@ -1,0 +1,207 @@
+{
+  "_about": "Care pathway definitions. Each entry is one disease the coordinator can run. Add an entry to add a disease: no code changes needed. example_* fields only pre-fill the demo screens.",
+  "pathways": [
+    {
+      "id": "tb",
+      "name": "Suspected pulmonary tuberculosis",
+      "short_name": "TB",
+      "tests": [
+        "Chest X-ray (PA view)",
+        "Sputum NAAT (CBNAAT / TrueNat)"
+      ],
+      "requires_imaging": true,
+      "imaging_focus": "findings that can be associated with pulmonary TB: upper-lobe infiltrates or consolidation, cavitation, hilar/mediastinal lymphadenopathy, miliary nodules, pleural effusion, fibrotic scarring",
+      "lab_focus": "whether M. tuberculosis was detected or not detected, the bacterial load if reported, and rifampicin resistance status",
+      "follow_up_plan": "Weekly adherence and symptom check-in while treatment is active.",
+      "escalation_rules": [
+        "3 or more missed doses in the past week",
+        "coughing up blood",
+        "yellow eyes or skin, dark urine (possible liver injury)",
+        "persistent vomiting or unable to take medicines",
+        "new or worsening breathlessness or chest pain",
+        "new vision problems or numbness/tingling"
+      ],
+      "completion_rule": "The doctor's notes say the treatment course is finished.",
+      "example_symptoms": "Cough for 3 weeks, evening fever, night sweats, weight loss of about 4 kg",
+      "example_doctor_notes": "Start first-line TB treatment as per national guidelines. Daily doses, review in clinic in 2 weeks. Course length 6 months.",
+      "example_check_ins": {
+        "on_track": "Took all 7 doses this week. Cough is less. No other problems.",
+        "warning": "Missed 4 doses this week because of travel. Feeling nauseous and my eyes look a bit yellow.",
+        "finished": "Finished the full course as the doctor said. Feeling well, no cough."
+      },
+      "triage_keywords": [
+        "cough for weeks",
+        "3 weeks",
+        "weeks",
+        "night sweats",
+        "weight loss",
+        "evening fever",
+        "blood in sputum",
+        "coughing blood",
+        "tb contact"
+      ]
+    },
+    {
+      "id": "pneumonia",
+      "name": "Suspected community-acquired pneumonia",
+      "short_name": "Pneumonia",
+      "tests": [
+        "Chest X-ray (PA view)",
+        "Complete blood count",
+        "C-reactive protein (CRP)"
+      ],
+      "requires_imaging": true,
+      "imaging_focus": "findings that can be associated with pneumonia: lobar or segmental consolidation, air bronchograms, patchy infiltrates, pleural effusion; say which lung zone is affected",
+      "lab_focus": "the white cell count, neutrophils and CRP, and whether each is above, within or below the reference range printed in the report",
+      "follow_up_plan": "Check-in every 2 to 3 days during the antibiotic course, then once at the end.",
+      "escalation_rules": [
+        "breathless at rest or breathing getting worse",
+        "confusion, unusual drowsiness or fainting",
+        "fever still high after 3 days of treatment",
+        "lips or fingertips turning bluish",
+        "new or worsening chest pain",
+        "unable to keep fluids or medicines down",
+        "2 or more missed antibiotic doses"
+      ],
+      "completion_rule": "The patient reports finishing the antibiotic course and feeling better, and the doctor's notes say no further review is needed.",
+      "example_symptoms": "Fever and cough with yellow sputum for 4 days, pain on the right side of the chest when breathing in, breathless climbing stairs",
+      "example_doctor_notes": "Start oral antibiotics as per clinic protocol for community-acquired pneumonia, 5-day course. Paracetamol for fever. Review in clinic in 3 days, no further review needed after that if recovered.",
+      "example_check_ins": {
+        "on_track": "Fever went away yesterday, cough is less, taking the antibiotics on time.",
+        "warning": "Still high fever after 3 days of antibiotics and now I get breathless just sitting.",
+        "finished": "Finished the 5-day course. No fever, breathing is normal, feeling well."
+      },
+      "triage_keywords": [
+        "fever",
+        "cough",
+        "sputum",
+        "phlegm",
+        "chest pain",
+        "breathless",
+        "breathing",
+        "days",
+        "chills"
+      ]
+    },
+    {
+      "id": "dengue",
+      "name": "Suspected dengue fever",
+      "short_name": "Dengue",
+      "tests": [
+        "Dengue NS1 antigen",
+        "Dengue IgM antibody",
+        "Complete blood count (platelets, haematocrit)"
+      ],
+      "requires_imaging": false,
+      "imaging_focus": "",
+      "lab_focus": "whether dengue NS1 antigen and IgM are positive or negative, the platelet count and haematocrit, and whether each is outside the reference range printed in the report",
+      "follow_up_plan": "Daily check-in during the critical phase (about days 3 to 7 of illness), then once at recovery.",
+      "escalation_rules": [
+        "severe abdominal pain or vomiting again and again",
+        "bleeding from gums or nose, or blood in vomit or stool",
+        "unusual drowsiness, restlessness or confusion",
+        "cold, clammy skin or fainting",
+        "unable to drink enough fluids, or passing very little urine"
+      ],
+      "completion_rule": "The patient reports no fever for at least 2 days and feeling well, and the doctor's notes say no further review is needed.",
+      "example_symptoms": "High fever for 3 days, severe headache, pain behind the eyes, body and joint aches, mild rash",
+      "example_doctor_notes": "Supportive care as per clinic protocol: plenty of oral fluids, paracetamol for fever; avoid ibuprofen and aspirin. Repeat platelet count in 2 days. No further review needed after recovery.",
+      "example_check_ins": {
+        "on_track": "Fever settled yesterday, drinking plenty of water, eating a little, no bleeding.",
+        "warning": "Severe stomach pain since morning, vomiting again and again, and my gums bled while brushing.",
+        "finished": "No fever for three days now, appetite is back and I feel well."
+      },
+      "triage_keywords": [
+        "high fever",
+        "fever",
+        "headache",
+        "behind the eyes",
+        "joint",
+        "body ache",
+        "rash",
+        "bleeding gums",
+        "monsoon",
+        "mosquito"
+      ]
+    },
+    {
+      "id": "diabetes",
+      "name": "Suspected type 2 diabetes",
+      "short_name": "Diabetes",
+      "tests": [
+        "HbA1c",
+        "Fasting plasma glucose"
+      ],
+      "requires_imaging": false,
+      "imaging_focus": "",
+      "lab_focus": "HbA1c and fasting glucose values, and whether each is in the normal, prediabetes or diabetes range according to the report's reference ranges",
+      "follow_up_plan": "Monthly glucose log and medication adherence check-in.",
+      "escalation_rules": [
+        "any glucose reading above 300 mg/dL or below 70 mg/dL",
+        "confusion, fainting or extreme thirst",
+        "a foot wound that is not healing",
+        "3 or more missed doses in the past week"
+      ],
+      "completion_rule": "The doctor's notes say routine follow-up is handed over to the clinic.",
+      "example_symptoms": "Increased thirst and frequent urination for 2 months, tiredness, blurred vision",
+      "example_doctor_notes": "Start metformin as per clinic protocol. Diet and exercise counselling. Repeat HbA1c in 3 months, then routine follow-up handed over to the clinic.",
+      "example_check_ins": {
+        "on_track": "Sugar readings between 110 and 150 this month, taking my tablets daily, no problems.",
+        "warning": "Readings went above 320 twice this week and I felt very thirsty and dizzy.",
+        "finished": "Three months done, HbA1c repeated, the doctor handed my follow-up to the clinic."
+      },
+      "triage_keywords": [
+        "thirst",
+        "thirsty",
+        "urination",
+        "urinating",
+        "passing urine",
+        "tired",
+        "tiredness",
+        "blurred vision",
+        "sugar",
+        "weight loss"
+      ]
+    },
+    {
+      "id": "hypertension",
+      "name": "Suspected hypertension (high blood pressure)",
+      "short_name": "Hypertension",
+      "tests": [
+        "Repeat clinic blood pressure readings",
+        "Serum creatinine (kidney function)",
+        "Urine protein",
+        "Lipid profile"
+      ],
+      "requires_imaging": false,
+      "imaging_focus": "",
+      "lab_focus": "the blood pressure readings, creatinine, urine protein and cholesterol values, and whether each is above or within the reference range printed in the report",
+      "follow_up_plan": "Weekly home blood pressure log for the first month, then monthly.",
+      "escalation_rules": [
+        "any blood pressure reading of 180/120 mmHg or higher",
+        "severe headache, blurred vision or confusion",
+        "chest pain or breathlessness",
+        "weakness or numbness on one side, or trouble speaking",
+        "3 or more missed doses in the past week"
+      ],
+      "completion_rule": "The doctor's notes say blood pressure is controlled and routine follow-up is handed over to the clinic.",
+      "example_symptoms": "Morning headaches for a month, blood pressure 158/98 at a pharmacy check, family history of high blood pressure",
+      "example_doctor_notes": "Start blood pressure medicine as per clinic protocol. Reduce salt and walk daily. Weekly home BP log, review in 4 weeks; routine follow-up handed over to the clinic once controlled.",
+      "example_check_ins": {
+        "on_track": "Home readings this week were between 128/82 and 136/86. Taking the tablet every morning.",
+        "warning": "Reading this morning was 186/122 and I have a bad headache and blurry vision.",
+        "finished": "Readings have been under 135/85 for a month and the doctor handed my follow-up to the clinic."
+      },
+      "triage_keywords": [
+        "blood pressure",
+        "bp",
+        "hypertension",
+        "headache",
+        "morning headaches",
+        "dizziness",
+        "dizzy",
+        "pressure"
+      ]
+    }
+  ]
+}

@@ -139,7 +139,7 @@ async def test_parallel_sub_agents_keep_every_audit_entry(client):
 
 async def test_pathways_come_from_the_definitions(client):
     rows = (await client.get("/api/pathways")).json()
-    assert [r["id"] for r in rows] == ["tb", "pneumonia", "diabetes"]
+    assert [r["id"] for r in rows] == ["tb", "pneumonia", "dengue", "diabetes", "hypertension"]
     assert all(r["example_check_ins"] for r in rows)
     bad = await client.post("/api/cases", json={"name": "X", "age": 30, "sex": "Male", "phone": "1",
                                                 "symptoms": "s", "pathway": "malaria"})

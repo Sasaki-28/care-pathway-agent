@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Doctor's Queue · Care Pathway</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/care.css">
+<style>
+  .sheet { min-height: 600px; }
+  .hd { padding-right: 330px; }
+  .ai-box { background: var(--blue-soft); border-left: 4px solid var(--blue); padding: 12px 16px; margin-top: 6px; }
+  .ai-box p { margin: 0 0 6px; }
+  .alertbox { background: var(--red-soft); border-left: 4px solid var(--red); padding: 12px 16px; font: 15px/1.5 var(--sans); margin-top: 18px; }
+  .docname { max-width: 260px; }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<div class="page">
+  <div class="page-hd"><div><h1>Doctor's queue</h1><p>Cases the coordinator has prepared for you. Nothing reaches the patient until you sign.</p></div></div>
+  <div class="split">
+    <aside class="queue">
+      <h2>Waiting for your review <span class="count" id="n-review"></span></h2><ul id="q-review"></ul>
+      <h2>Escalations <span class="count" id="n-alerts"></span></h2><ul id="q-alerts"></ul>
+      <h2>Recently decided</h2><ul id="q-recent"></ul>
+    </aside>
+    <article class="sheet" id="sheet">
+      <section id="nothing" class="empty-sheet"><h1>No case open</h1><p>Pick a case from your queue.</p></section>
+      <section id="case" hidden>
+        <div class="hd"><h1 id="c-name"></h1><div class="r" id="c-ref"></div></div>
+        <div class="fields" id="c-fields"></div>
+        <div class="trail" id="c-trail"></div>
+        <div class="stamp-wrap"><div class="stamp" id="stamp" aria-live="polite"></div></div>
+        <div id="c-alert"></div>
+        <h2 class="sec">Presenting complaint</h2><p id="c-complaint"></p>
+        <h2 class="sec">Coordinator's summary <span class="by">AI-prepared, check against the findings below</span></h2><div class="ai-box" id="c-summary"></div>
+        <h2 class="sec">Investigations</h2><div id="c-lab"></div>
+        <div id="imaging-block"><h2 class="sec">Imaging</h2><div id="c-img"></div></div>
+        <h2 class="sec">Plan</h2><div id="c-plan"></div>
+        <div id="followup-block"><h2 class="sec">Follow-up</h2><div id="c-followup"></div></div>
+
+        <section class="decision" id="decision" hidden>
+          <h2>Your decision</h2>
+          <p style="font:14px/1.5 var(--sans);color:var(--ink-2);margin:0">The coordinator passes on only what you write here. Once you approve, the patient is told (and emailed) in your words.</p>
+          <label for="d-notes">Plan for the patient</label>
+          <textarea id="d-notes" style="min-height:110px"></textarea>
+          <label for="d-name">Signed by</label>
+          <input id="d-name" class="docname" value="Dr. Demo" autocomplete="off">
+          <div class="btns">
+            <button class="btn sign" id="btn-approve">Approve and release to patient</button>
+            <button class="btn ghost" id="btn-more">Request further tests</button>
+          </div>
+          <div class="busy-line" id="d-busy" hidden><svg class="pen" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14l1-4 8-8 3 3-8 8z" fill="currentColor"/></svg>Coordinator is acting on your decision…</div>
+          <div class="note" id="d-err" role="alert"></div>
+        </section>
+        <div class="okay" id="d-ok" role="status"></div>
+      </section>
+    </article>
+  </div>
+</div>
+
+<script src="/assets/care.js"></script>
+<script>
+topbar("doctor", "You are the doctor: you see the AI's findings and decide. Only your sign-off releases anything to the patient.");
+let current = location.hash.slice(1) || null, busy = false, shownFor = "";
+try { $("d-name").value = localStorage.getItem("doctorName") || "Dr. Demo"; } catch {}
+$("d-name").onchange = () => { try { localStorage.setItem("doctorName", $("d-name").value); } catch {} };
+
+async function renderQueue() {
+  const q = await api("/api/doctor/queue");
+  const list = (rows, id, wait) => {
+    $(id).innerHTML = rows.map(r => `<li>${ticketHTML(r, { current: r.session_id === current, wait: wait(r) })}</li>`).join("") || `<li class="none">None.</li>`;
+  };
+  list(q.review, "q-review", r => `waiting ${ago(r.since)}`);
+  list(q.alerts, "q-alerts", r => `escalated ${ago(r.since)} ago`);
+  list(q.recent, "q-recent", r => STEP_TEXT[r.current_step]);
+  $("n-review").textContent = q.review.length; $("n-alerts").textContent = q.alerts.length;
+  document.querySelectorAll(".queue .ticket").forEach(b => b.onclick = () => { location.hash = b.dataset.id; });
+  if (!current && q.review.length) { current = q.review[0].session_id; history.replaceState(null, "", "#" + current); }
+}
+async function renderCase() {
+  $("nothing").hidden = !!current; $("case").hidden = !current;
+  if (!current) return;
+  const data = await api(`/api/cases/${current}`), st = data.state, step = st.current_step, log = st.audit_log || [];
+  $("c-name").textContent = st.patient?.name || "Unregistered patient";
+  $("c-ref").textContent = `Case ${current.replace("case-", "")}${log.length ? " · opened " + dayTime(log[0].ts) : ""}`;
+  $("c-fields").innerHTML = fieldsHTML(st);
+  $("c-trail").innerHTML = trailHTML(step);
+  const [cls, html] = stampHTML(step, busy, log.length ? Date.parse(log[log.length - 1].ts) : null);
+  $("stamp").className = cls; $("stamp").innerHTML = html;
+  $("c-complaint").textContent = st.patient?.symptoms || "";
+  $("c-summary").innerHTML = summaryHTML(st);
+  $("c-lab").innerHTML = labHTML(st, current);
+  $("imaging-block").hidden = !needsImaging(st);
+  $("c-img").innerHTML = imagingHTML(st, current, true);
+  $("c-plan").innerHTML = planHTML(st);
+  $("followup-block").hidden = !(st.follow_ups || []).length;
+  $("c-followup").innerHTML = followUpHTML(st);
+  const alert = (st.doctor_alerts || []).slice(-1)[0];
+  $("c-alert").innerHTML = step === "ESCALATED" && alert
+    ? `<div class="alertbox"><strong>Escalated to you.</strong> ${esc(alert.summary)}<br>Please contact the patient${st.patient?.phone ? ` on ${esc(st.patient.phone)}` : ""}. The coordinator takes no further action.</div>` : "";
+  const deciding = step === "AWAITING_DOCTOR_REVIEW";
+  $("decision").hidden = !deciding && !busy;
+  if (deciding && shownFor !== current) {          // prefill once per case, keep what the doctor types
+    shownFor = current; $("d-notes").value = pw(st.pathway_id)?.example_doctor_notes || ""; $("d-err").textContent = "";
+  }
+}
+async function decide(decision) {
+  if (busy) return;
+  busy = true; $("d-err").textContent = ""; $("d-ok").textContent = ""; $("d-busy").hidden = false;
+  document.querySelectorAll("#decision .btn").forEach(b => b.disabled = true);
+  try {
+    const r = await postJSON("/webhooks/doctor_decision", { session_id: current, decision, notes: $("d-notes").value, doctor_name: $("d-name").value || "Doctor" });
+    if (r.error) $("d-err").textContent = friendly(r.error) + " Your decision is saved; the clinic desk can press Continue.";
+    else $("d-ok").textContent = decision === "approve"
+      ? `Approved. The patient has been told${(r.emails || []).some(e => e.ok) ? " and emailed" : ""}.`
+      : "Sent back for further tests. The case waits for the lab again.";
+  } catch (e) { $("d-err").textContent = e.message; }
+  finally { busy = false; $("d-busy").hidden = true; document.querySelectorAll("#decision .btn").forEach(b => b.disabled = false); await refresh(); }
+}
+$("btn-approve").onclick = () => decide("approve");
+$("btn-more").onclick = () => decide("more_tests");
+window.addEventListener("hashchange", () => { current = location.hash.slice(1) || null; $("d-ok").textContent = ""; refresh(); window.scrollTo(0, 0); });
+
+async function refresh() { try { await renderQueue(); await renderCase(); } catch (e) { console.error(e); } }
+(async () => {
+  await loadPathways(); await refresh();
+  setInterval(() => { if (!busy && !document.activeElement?.closest("#decision")) refresh(); }, 6000);
+})();
+</script>
+</body>
+</html>

@@ -9,14 +9,17 @@ The server can be stopped or scaled to zero between steps without losing anythin
 """
 
 import logging
+import uuid
 from typing import Any
 
+from google.adk.events import Event, EventActions
 from google.adk.runners import Runner
 from google.adk.sessions import BaseSessionService
 from google.genai import types
 
 from care_pathway.state_schema import SIGNAL_EXPECTED_STEP
 from care_pathway.tools import audit_entry_delta
+from server import notify
 
 logger = logging.getLogger("care_pathway.resume")
 
@@ -59,7 +62,45 @@ class CaseRunner:
         except Exception as exc:  # surface model/API errors to the UI instead of a 500
             logger.exception("Agent run failed for %s", session_id)
             error = f"{type(exc).__name__}: {exc}"
-        return {"replies": replies, "tool_calls": tool_calls, "error": error}
+        emails = await self.deliver_emails(session_id)
+        return {"replies": replies, "tool_calls": tool_calls, "error": error, "emails": emails}
+
+    async def set_state(self, session_id: str, delta: dict[str, Any]) -> None:
+        """Write a state change without running the agent (system bookkeeping)."""
+        session = await self.get(session_id)
+        await self.sessions.append_event(session, Event(
+            author="system", invocation_id=f"sys-{uuid.uuid4().hex[:10]}",
+            actions=EventActions(state_delta=delta)))
+
+    async def deliver_emails(self, session_id: str) -> list[dict]:
+        """Email every patient message not emailed yet. Failures are logged, never raised."""
+        try:
+            session = await self.get(session_id)
+            st = session.state
+            inbox = st.get("patient_inbox", [])
+            done = st.get("emailed_count", 0)
+            if done >= len(inbox):
+                return []
+            to = (st.get("contact") or {}).get("email", "")
+            results, audit_state = [], dict(st)
+            delta: dict[str, Any] = {"emailed_count": len(inbox)}
+            for msg in inbox[done:]:
+                if not to or not notify.configured():
+                    continue   # no address or email not set up: the patient page still shows every message
+                first = ((st.get("patient") or {}).get("name") or "").split(" ")[0]
+                subject, text, page = notify.build_email(
+                    first, msg, notify.portal_link(session_id, st.get("patient_token", "")))
+                ok, detail = await notify.send_email(to, subject, text, page)
+                results.append({"subject": subject, "ok": ok, "detail": detail})
+                note = f"Emailed patient: {subject}" if ok else f"Email not sent ({subject}): {detail}"
+                entry = audit_entry_delta(audit_state, "email", note)
+                audit_state.update(entry)
+                delta.update(entry)
+            await self.set_state(session_id, delta)
+            return results
+        except Exception:  # noqa: BLE001  (email must never break a case)
+            logger.exception("Email delivery failed for %s", session_id)
+            return [{"subject": "", "ok": False, "detail": "email step failed; see server log"}]
 
     async def resume(self, session_id: str, signal: str,
                      state_delta: dict[str, Any], message: str) -> dict:

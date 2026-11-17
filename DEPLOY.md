@@ -1,4 +1,4 @@
-# Deploying to Google Cloud Run + Supabase
+# Deploying (Render or Google Cloud Run) + Supabase, and patient emails
 
 The app runs on **Cloud Run** (scales to zero when idle, like the long-running agent
 article describes) and stores cases in **Supabase Postgres**, so they survive restarts
@@ -103,3 +103,41 @@ Run the same `gcloud run deploy ...` command again. Cases are in Supabase, so th
 | Page loads but every case action shows a database error | Check the Supabase URI: Session pooler, password filled in, no `[ ]`, no symbols in the password. |
 | `Password required.` and no prompt | Open the link in a normal (not embedded) browser tab. |
 | Error page right after deploy | Open the Logs tab (above); the last red lines say what failed. |
+
+---
+
+## Patient emails with Resend (about 10 minutes)
+
+The app emails each patient message (test instructions, the doctor-approved plan,
+check-in replies, the care-team alert) with a link to the patient's own page. Without a
+key, everything still works and messages are only shown on the patient page.
+
+1. Go to **resend.com**, sign up (free plan) with the email address you want to receive
+   the demo emails on.
+2. Left menu, **API Keys**, **Create API key** (permission: *Sending access*). Copy the key
+   (starts with `re_`). You only see it once.
+3. **Locally:** open `.env` (`notepad .env`) and add:
+   ```
+   RESEND_API_KEY=re_...your key...
+   PUBLIC_BASE_URL=http://127.0.0.1:8000
+   ```
+   Restart the server. Admit a patient with **your Resend signup email** in the *Email*
+   field. Within a few seconds you get "Your tests have been requested".
+4. **On Render:** open your service, **Environment**, **Add Environment Variable**, and add:
+   | Key | Value |
+   |---|---|
+   | `RESEND_API_KEY` | your `re_...` key |
+   | `PUBLIC_BASE_URL` | your site address, e.g. `https://care-pathway-agent.onrender.com` (no slash at the end) |
+   Click **Save, rebuild, and deploy**. (On Cloud Run, add the same two lines to
+   `cloudrun.env.yaml` and deploy again.)
+
+Things to know:
+- Resend's test sender (`onboarding@resend.dev`) **only delivers to your own signup
+  email**. Other addresses show *Email not sent (… Resend refused the recipient …)* in the
+  case's audit trail; the case itself carries on. To email anyone, verify a domain you own
+  in Resend and set `EMAIL_FROM=Care Pathway <care@yourdomain>`.
+- Render's free plan blocks normal mail ports (SMTP), which is why the app uses Resend's
+  web API instead.
+- The patient page (`/patient/...`) is reached by its private link and does not ask for the
+  `DEMO_PASSWORD`; every other screen does.
+- Use made-up patients with your own email. Never real patient data.

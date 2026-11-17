@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your Care Page · City Clinic</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/care.css">
+</head>
+<body class="patient">
+<main class="pt">
+  <div class="pt-top"><span class="logo" aria-hidden="true">+</span><div>City Clinic<small>Your care page</small></div></div>
+
+  <div id="bad" class="pt-card" hidden><h2>Link not valid</h2><p class="pt-status">This link doesn't work. Please open the latest email from the clinic, or ask the clinic for a new link.</p></div>
+
+  <div id="ok" hidden>
+    <h1 id="hello"></h1>
+    <p class="plan" id="plan"></p>
+
+    <section class="pt-card" aria-labelledby="h-status">
+      <h2 id="h-status">Where things stand</h2>
+      <p class="pt-status" id="status"></p>
+      <div class="pt-steps" id="steps"></div>
+    </section>
+
+    <section class="pt-card" id="checkin" hidden aria-labelledby="h-check">
+      <h2 id="h-check">Weekly check-in</h2>
+      <label for="ci-text" style="color:inherit;font-size:15px">How have you been this week? Did you take every dose? Any new problems?</label>
+      <textarea id="ci-text" placeholder="Write in your own words."></textarea>
+      <div class="examples" id="examples" aria-label="Demo examples"></div>
+      <button class="btn" id="ci-send">Send to my care team</button>
+      <div class="note" id="ci-err" role="alert"></div>
+      <div class="okay" id="ci-ok" role="status"></div>
+    </section>
+
+    <section class="pt-card" aria-labelledby="h-msgs">
+      <h2 id="h-msgs">Messages from your clinic</h2>
+      <div id="msgs"></div>
+    </section>
+
+    <p class="sos"><strong>In an emergency, go to the nearest hospital or call 108.</strong><br>This page is part of a research prototype. Your doctor makes every medical decision.</p>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const sid = decodeURIComponent(location.pathname.split("/").pop());
+const token = new URLSearchParams(location.search).get("t") || "";
+const qs = `?t=${encodeURIComponent(token)}`;
+const KIND = { instructions: ["Your tests", ""], doctor_approved_plan: ["From your doctor", "ok"], follow_up: ["Reply to your check-in", ""], escalation_notice: ["Care team", "alert"] };
+const LABELS = { on_track: "Feeling fine", warning: "Feeling worse", finished: "Finished my course" };
+const STEPS = ["Tests", "Doctor review", "Treatment", "Done"];
+const STAGE = { INTAKE: 0, TESTS_ORDERED: 0, RESULTS_RECEIVED: 1, AWAITING_DOCTOR_REVIEW: 1, DOCTOR_APPROVED: 1, TREATMENT_ACTIVE: 2, FOLLOW_UP_DUE: 2, ESCALATED: 2, COMPLETED: 4 };
+let sending = false, examplesShown = false;
+
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function when(ts) { const d = new Date(ts); return isNaN(d) ? "" : d.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); }
+
+async function load() {
+  const res = await fetch(`/api/patient/${encodeURIComponent(sid)}${qs}`);
+  if (!res.ok) { $("bad").hidden = false; $("ok").hidden = true; return; }
+  const v = await res.json();
+  $("ok").hidden = false;
+  $("hello").textContent = v.first_name ? `Hello, ${v.first_name}` : "Hello";
+  $("plan").textContent = v.care_plan ? `Care plan: ${v.care_plan}` : "";
+  $("status").textContent = v.status;
+  const stage = STAGE[v.step] ?? 0;
+  $("steps").innerHTML = STEPS.map((s, i) => {
+    const cls = v.step === "ESCALATED" && i === 2 ? "alert" : i < stage ? "done" : i === stage ? "now" : "";
+    return `<div class="${cls}">${v.step === "ESCALATED" && i === 2 ? "Doctor alerted" : s}</div>`;
+  }).join("");
+  const msgs = v.messages || [];
+  const locked = v.step !== "TREATMENT_ACTIVE" && !["ESCALATED", "COMPLETED"].includes(v.step) && !msgs.some(m => m.kind === "doctor_approved_plan")
+    ? `<div class="pt-locked">Your results will appear here after your doctor has reviewed them.</div>` : "";
+  $("msgs").innerHTML = msgs.slice().reverse().map(m => {
+    const [k, c] = KIND[m.kind] || ["Message", ""];
+    return `<div class="bubble ${c}"><span class="k">${k} · ${esc(when(m.ts))}</span>${esc(m.text)}</div>`;
+  }).join("") + locked || `<p style="color:#85918F">No messages yet.</p>`;
+  $("checkin").hidden = !v.can_check_in;
+  if (v.can_check_in && !examplesShown) {
+    examplesShown = true;
+    $("examples").innerHTML = `<span style="font-size:12px;color:#85918F;align-self:center">Demo examples:</span>` +
+      Object.entries(v.check_in_examples || {}).map(([k, t]) => `<button type="button" data-t="${esc(t)}">${esc(LABELS[k] || k)}</button>`).join("");
+    $("examples").querySelectorAll("button").forEach(b => b.onclick = () => { $("ci-text").value = b.dataset.t; });
+  }
+}
+$("ci-send").onclick = async () => {
+  const text = $("ci-text").value.trim();
+  if (sending || text.length < 2) return;
+  sending = true; $("ci-err").textContent = ""; $("ci-ok").textContent = ""; $("ci-send").disabled = true; $("ci-send").textContent = "Sending…";
+  try {
+    const res = await fetch(`/api/patient/${encodeURIComponent(sid)}/check-in${qs}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ check_in: text }) });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || body.error) throw new Error(body.detail || body.error || "Could not send. Please try again.");
+    $("ci-text").value = ""; $("ci-ok").textContent = "Thank you. Your care team has your check-in.";
+  } catch (e) { $("ci-err").textContent = e.message; }
+  finally { sending = false; $("ci-send").disabled = false; $("ci-send").textContent = "Send to my care team"; examplesShown = false; await load(); }
+};
+load();
+setInterval(() => { if (!sending && document.activeElement !== $("ci-text")) load(); }, 8000);
+</script>
+</body>
+</html>

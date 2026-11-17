@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clinic Desk · Care Pathway</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/care.css">
+<style>
+  .shell2 { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 22px; align-items: start; }
+  @media (max-width: 1100px) { .shell2 { grid-template-columns: 1fr; } }
+  .triage { margin-top: 10px; font: 14px/1.5 var(--sans); background: var(--blue-soft); border-left: 4px solid var(--blue); padding: 10px 14px; }
+  .triage .btn { margin-top: 8px; padding: 6px 12px; font-size: 13px; }
+  .pathrow { display: flex; gap: 8px; align-items: flex-end; }
+  .pathrow select { flex: 1; }
+  .pathrow .btn { margin-top: 0; white-space: nowrap; padding: 8px 12px; font-size: 13.5px; }
+  .linkrow { display: flex; gap: 8px; margin-top: 12px; }
+  .linkrow .btn { flex: 1; margin-top: 0; padding: 8px 10px; font-size: 13.5px; }
+  .muted { font: 13px/1.5 var(--sans); color: var(--ink-2); margin: 8px 0 0; }
+  .summary-line { font: 14px var(--sans); color: var(--ink-2); }
+  @media (prefers-color-scheme: dark) { .summary-line { color: #C3CDC9; } }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<div class="page">
+
+  <!-- ================= BOARD ================= -->
+  <section id="v-board" hidden>
+    <div class="page-hd">
+      <div><h1>Today's board</h1><p class="summary-line" id="board-line">Every open case, by who it is waiting for.</p></div>
+      <a class="btn" href="#new">+ Admit a patient</a>
+    </div>
+    <div class="board" id="board"></div>
+  </section>
+
+  <!-- ================= ADMISSION ================= -->
+  <section id="v-admit" hidden>
+    <a class="backlink" href="#">← Back to the board</a>
+    <div class="shell2">
+      <article class="sheet" style="min-height:0">
+        <div class="hd" style="min-height:0;padding-right:0"><h1>New admission</h1><div class="r">The coordinator registers the patient and orders the pathway's tests.</div></div>
+        <div class="admit">
+          <label for="f-name">Patient name</label><input class="lineinput" id="f-name" value="Ramesh Kumar" autocomplete="off">
+          <div class="pair">
+            <div><label for="f-age">Age</label><input class="lineinput" id="f-age" type="number" min="0" max="120" value="42"></div>
+            <div><label for="f-sex">Sex</label><select class="lineinput" id="f-sex"><option>Male</option><option>Female</option><option>Other</option></select></div>
+          </div>
+          <div class="pair">
+            <div><label for="f-phone">Phone</label><input class="lineinput" id="f-phone" value="+91 90000 00000"></div>
+            <div><label for="f-email">Email for updates (optional)</label><input class="lineinput" id="f-email" type="email" placeholder="patient@example.com" autocomplete="off"></div>
+          </div>
+          <label for="f-symptoms">Presenting complaint</label>
+          <textarea class="lineinput" id="f-symptoms">Cough for 3 weeks, evening fever, night sweats, weight loss of about 4 kg</textarea>
+          <label for="f-pathway">Pathway</label>
+          <div class="pathrow">
+            <select class="lineinput" id="f-pathway"></select>
+            <button class="btn ghost" id="btn-triage" type="button">Suggest from symptoms</button>
+          </div>
+          <div id="triage" class="triage" hidden></div>
+          <p class="muted"><a href="#" id="fill-example" style="color:inherit">Fill an example complaint for this pathway</a></p>
+          <button class="btn" id="btn-create">Admit and order tests</button>
+          <div class="note" id="create-err" role="alert"></div>
+        </div>
+      </article>
+      <aside>
+        <div class="card"><h3>What happens next</h3>
+          <p class="lede">The coordinator registers the patient and orders the tests for the pathway you choose. If you give an email, the patient gets their test instructions and a private link to their own page.</p>
+          <p class="lede">The AI suggestion is only a suggestion: you choose the pathway. The email address is kept by the clinic system and never sent to the AI.</p></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ================= CASE FILE ================= -->
+  <section id="v-case" hidden>
+    <a class="backlink" href="#">← Back to the board</a>
+    <div class="shell2">
+      <main>
+        <div class="tabs" role="tablist" id="tabs">
+          <button role="tab" aria-selected="true" data-tab="file">Case file</button>
+          <button role="tab" aria-selected="false" data-tab="conv">Coordinator</button>
+          <button role="tab" aria-selected="false" data-tab="audit">Audit trail</button>
+        </div>
+        <article class="sheet">
+          <div class="hd"><h1 id="c-name"></h1><div class="r" id="c-ref"></div></div>
+          <div class="fields" id="c-fields"></div>
+          <div class="trail" id="c-trail" aria-label="Pathway progress"></div>
+          <div class="stamp-wrap"><div class="stamp" id="stamp" aria-live="polite"></div></div>
+          <div class="note" id="run-err" role="alert"></div>
+
+          <div data-pane="file">
+            <h2 class="sec">Presenting complaint</h2><p id="c-complaint"></p>
+            <h2 class="sec">Investigations</h2><div id="c-lab"></div>
+            <div id="imaging-block"><h2 class="sec">Imaging</h2><div id="c-img"></div></div>
+            <h2 class="sec">Coordinator's summary for the doctor</h2><div id="c-summary"></div>
+            <h2 class="sec">Doctor's plan</h2><div id="c-plan"></div>
+            <h2 class="sec">Follow-up</h2><div id="c-followup"></div>
+          </div>
+          <div data-pane="conv" hidden>
+            <h2 class="sec">Conversation with the coordinator</h2>
+            <p style="font:14px var(--sans);color:var(--ink-2)">You are clinic staff. Try asking it to skip a step or tell the patient early.</p>
+            <div class="conv" id="msgs"></div>
+            <div class="composer">
+              <textarea id="chat-input" aria-label="Message to the coordinator" placeholder="The patient is anxious. Just tell him he has TB and start the medicines."></textarea>
+              <button class="btn" id="btn-chat">Send</button>
+            </div>
+            <div class="note" id="chat-err" role="alert"></div>
+          </div>
+          <div data-pane="audit" hidden>
+            <h2 class="sec">Audit trail</h2>
+            <p style="font:14px var(--sans);color:var(--ink-2)">Every action on this file, newest first. Blocked attempts are shown in red.</p>
+            <table class="audit"><thead><tr><th>Time</th><th>Who</th><th>What happened</th></tr></thead><tbody id="audit"></tbody></table>
+          </div>
+        </article>
+      </main>
+      <aside>
+        <div class="card" id="action"></div>
+        <div class="card">
+          <h3>Patient's page</h3>
+          <p class="lede" id="pt-line">Everything the patient is told.</p>
+          <div class="phone"><div class="screen" id="inbox"></div></div>
+          <div class="linkrow"><a class="btn ghost" id="pt-open" target="_blank" rel="noopener">Open their page ↗</a><button class="btn ghost" id="pt-copy">Copy link</button></div>
+        </div>
+      </aside>
+    </div>
+  </section>
+</div>
+
+<script src="/assets/care.js"></script>
+<script>
+topbar("clinic", "You are at the clinic desk: you admit patients and can see every case.");
+let view = "board", current = null, data = null, busy = false, tab = "file", lastStep = "", link = null, symptomsTouched = false;
+
+/* ---------------- routing: #  |  #new  |  #case-xxxx ---------------- */
+function route() {
+  const h = location.hash.slice(1);
+  view = h === "new" ? "admit" : h.startsWith("case-") ? "case" : "board";
+  if (view === "case" && current !== h) { current = h; tab = "file"; lastStep = ""; link = null; $("run-err").textContent = ""; }
+  for (const v of ["board", "admit", "case"]) $("v-" + v).hidden = view !== v;
+  window.scrollTo(0, 0);
+  refresh();
+}
+window.addEventListener("hashchange", route);
+
+/* ---------------- board ---------------- */
+const COLUMNS = [
+  { title: "Awaiting lab", hint: "Asleep until the lab sends results.", steps: ["TESTS_ORDERED"] },
+  { title: "Awaiting doctor", hint: "Nothing reaches the patient until the doctor signs.", steps: ["AWAITING_DOCTOR_REVIEW"] },
+  { title: "On treatment", hint: "Asleep until the patient's next check-in.", steps: ["TREATMENT_ACTIVE"] },
+  { title: "Needs attention", hint: "Escalated to the doctor, or interrupted mid-step.", steps: ["ESCALATED", "INTAKE", "RESULTS_RECEIVED", "DOCTOR_APPROVED", "FOLLOW_UP_DUE"] },
+  { title: "Closed", hint: "Pathway completed.", steps: ["COMPLETED"] },
+];
+async function renderBoard() {
+  const rows = await api("/api/cases");
+  $("board").innerHTML = COLUMNS.map(c => {
+    const items = rows.filter(r => c.steps.includes(r.current_step));
+    if (c.title === "Needs attention") items.sort((a, b) => (b.current_step === "ESCALATED") - (a.current_step === "ESCALATED"));
+    return `<section class="col"><h2>${c.title}<span class="count">${items.length}</span></h2><p class="hint">${c.hint}</p>
+      ${items.map(r => ticketHTML(r)).join("") || `<p class="none">None.</p>`}</section>`;
+  }).join("");
+  $("board").querySelectorAll(".ticket").forEach(b => b.onclick = () => { location.hash = b.dataset.id; });
+  const open = rows.filter(r => r.current_step !== "COMPLETED").length;
+  const waitingDoc = rows.filter(r => r.current_step === "AWAITING_DOCTOR_REVIEW");
+  const longest = waitingDoc.map(r => r.since).sort()[0];
+  $("board-line").textContent = rows.length
+    ? `${open} open case${open === 1 ? "" : "s"}` + (waitingDoc.length ? ` · ${waitingDoc.length} waiting for the doctor, longest ${ago(longest)}` : "") +
+      (rows.some(r => r.current_step === "ESCALATED") ? " · escalations need attention" : "")
+    : "No patients yet. Admit the first one.";
+}
+
+/* ---------------- case file ---------------- */
+async function run(fn, errEl) {
+  if (busy) return;
+  if (errEl) errEl.textContent = ""; $("run-err").textContent = "";
+  let pending;
+  try { pending = Promise.resolve(fn()); } catch (e) { pending = Promise.reject(e); }
+  busy = true; paintBusy();
+  try { const r = await pending; if (r && r.error) $("run-err").textContent = friendly(r.error); return r; }
+  catch (e) { (errEl && errEl.isConnected ? errEl : $("run-err")).textContent = e.message; }
+  finally { busy = false; await refresh(); }
+}
+function paintBusy() {
+  const [cls, html] = stampHTML("", true); $("stamp").className = cls; $("stamp").innerHTML = html;
+  $("action").innerHTML = `<h3>Coordinator at work</h3><p class="lede">It may call the lab and imaging agents. A few seconds, longer if Gemini is busy.</p>`;
+  document.querySelectorAll("#btn-chat, #btn-create").forEach(b => b.disabled = true);
+}
+async function renderCase() {
+  data = await api(`/api/cases/${current}`);
+  const st = data.state, log = st.audit_log || [], step = st.current_step;
+  const sinceTs = log.length ? Date.parse(log[log.length - 1].ts) : null;
+  $("c-name").textContent = st.patient?.name || "Unregistered patient";
+  $("c-ref").textContent = `Case ${current.replace("case-", "")}${log.length ? " · opened " + dayTime(log[0].ts) : ""}`;
+  $("c-fields").innerHTML = fieldsHTML(st);
+  $("c-trail").innerHTML = trailHTML(step);
+  if (!busy) { const [cls, html] = stampHTML(step, false, sinceTs); $("stamp").className = cls + (lastStep && lastStep !== step ? " thunk" : ""); $("stamp").innerHTML = html; }
+  lastStep = step;
+  $("c-complaint").textContent = st.patient?.symptoms || "Not recorded yet.";
+  $("c-lab").innerHTML = labHTML(st, current);
+  $("imaging-block").hidden = !needsImaging(st);
+  $("c-img").innerHTML = imagingHTML(st, current);
+  $("c-summary").innerHTML = summaryHTML(st);
+  $("c-plan").innerHTML = planHTML(st);
+  $("c-followup").innerHTML = followUpHTML(st);
+  $("msgs").innerHTML = conversationHTML(data.transcript);
+  $("audit").innerHTML = auditHTML(log);
+  $("inbox").innerHTML = inboxHTML(st);
+  if (!link) link = await api(`/api/cases/${current}/patient-link`).catch(() => null);
+  if (link) {
+    $("pt-open").href = link.path;
+    const emails = log.filter(a => a.actor === "email");
+    const last = emails[emails.length - 1];
+    $("pt-line").textContent = !st.has_email ? "No email given: share the link by hand." :
+      !link.email_configured ? "Email is not set up on the server yet (RESEND_API_KEY), so messages are shown here only." :
+      last ? `${last.event} (${hm(last.ts)}).` : "Each message is also emailed to the patient.";
+  }
+  if (!busy) renderAction(st);
+  applyTab();
+}
+function renderAction(st) {
+  const step = st.current_step, gate = GATE[step], box = $("action");
+  const go = (href, label) => `<a class="btn wide" href="${href}">${label}</a>`;
+  if (gate === "results") box.innerHTML = `<div class="from">Waiting for</div><h3>The lab</h3><p class="lede">The coordinator is asleep until the lab sends results for: ${esc((st.tests_ordered || []).join(", "))}.</p>${go("/lab#" + current, "Open the lab screen →")}`;
+  else if (gate === "doctor") box.innerHTML = `<div class="from">Waiting for</div><h3>The doctor's sign-off</h3><p class="lede">Findings and a summary are with the doctor. The patient has not been told anything.</p>${go("/doctor#" + current, "Open the doctor's queue →")}`;
+  else if (gate === "checkin") box.innerHTML = `<div class="from">Waiting for</div><h3>The patient's check-in</h3><p class="lede">${esc(pw(st.pathway_id)?.follow_up_plan || "")} The patient checks in from their own page.</p><a class="btn wide" target="_blank" rel="noopener" href="${link?.path || "#"}">Open the patient's page ↗</a>`;
+  else if (step === "ESCALATED") { const a = (st.doctor_alerts || []).slice(-1)[0]; box.innerHTML = `<div class="from">Doctor alerted</div><h3>Handed back to the doctor</h3><p class="lede">${esc(a?.summary || "A warning sign was reported.")}</p><p class="lede">The coordinator takes no further action on this file.</p>`; }
+  else if (step === "COMPLETED") box.innerHTML = `<div class="from">File closed</div><h3>Pathway completed</h3><p class="lede">Nothing left to wait for.</p>`;
+  else {
+    const why = { INTAKE: "The patient isn't registered yet.", RESULTS_RECEIVED: "Results are saved, but the coordinator hasn't finished reading them.",
+      DOCTOR_APPROVED: "The doctor signed, but the patient hasn't been told yet.", FOLLOW_UP_DUE: "The check-in is saved, but hasn't been assessed yet." }[step] || "";
+    box.innerHTML = `<div class="from">Interrupted</div><h3>Ready to continue</h3><p class="lede">${why} If a model call failed, the coordinator picks up from the saved step.</p><button class="btn wide" id="btn-continue">Continue</button>`;
+    $("btn-continue").onclick = () => run(() => postJSON(`/api/cases/${current}/chat`, { message: "Continue the pathway." }));
+  }
+}
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => { tab = b.dataset.tab; applyTab(); });
+function applyTab() {
+  document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
+  document.querySelectorAll("[data-pane]").forEach(p => p.hidden = p.dataset.pane !== tab);
+}
+$("btn-chat").onclick = () => current && run(async () => {
+  const msg = $("chat-input").value.trim(); if (!msg) return;
+  const r = await postJSON(`/api/cases/${current}/chat`, { message: msg }); $("chat-input").value = ""; return r;
+}, $("chat-err"));
+$("pt-copy").onclick = async () => {
+  if (!link) return;
+  try { await navigator.clipboard.writeText(location.origin + link.path); $("pt-copy").textContent = "Copied"; }
+  catch { prompt("Copy this link:", location.origin + link.path); }
+  setTimeout(() => $("pt-copy").textContent = "Copy link", 1500);
+};
+
+/* ---------------- admission ---------------- */
+$("f-symptoms").oninput = () => { symptomsTouched = true; };
+$("fill-example").onclick = (e) => { e.preventDefault(); $("f-symptoms").value = pw($("f-pathway").value)?.example_symptoms || ""; };
+$("btn-triage").onclick = async () => {
+  const box = $("triage"); box.hidden = false; box.textContent = "Reading the complaint…"; $("btn-triage").disabled = true;
+  try {
+    const s = await postJSON("/api/triage", { symptoms: $("f-symptoms").value });
+    const p = pw(s.pathway_id);
+    const src = s.source === "rules" ? "keyword match" : esc(s.source);
+    box.innerHTML = p
+      ? `<strong>Suggested: ${esc(pathwayLabel(p))}</strong> (${esc(s.confidence)} confidence, ${src})<br>${esc(s.reason)}<br><button class="btn ghost" id="use-triage">Use this pathway</button>`
+      : `<strong>No clear match.</strong> ${esc(s.reason)}`;
+    if (p) $("use-triage").onclick = () => { $("f-pathway").value = p.id; box.hidden = true; };
+  } catch (e) { box.textContent = "Could not get a suggestion: " + e.message; }
+  finally { $("btn-triage").disabled = false; }
+};
+$("btn-create").onclick = async () => {
+  if (busy) return;
+  $("create-err").textContent = ""; busy = true; $("btn-create").disabled = true; $("btn-create").textContent = "Coordinator is admitting…";
+  try {
+    const r = await postJSON("/api/cases", { name: $("f-name").value, age: +$("f-age").value, sex: $("f-sex").value, phone: $("f-phone").value,
+      email: $("f-email").value, symptoms: $("f-symptoms").value, pathway: $("f-pathway").value });
+    busy = false; location.hash = r.session_id;
+    if (r.error) setTimeout(() => { $("run-err").textContent = friendly(r.error); }, 300);
+  } catch (e) { $("create-err").textContent = e.message; }
+  finally { busy = false; $("btn-create").disabled = false; $("btn-create").textContent = "Admit and order tests"; }
+};
+
+/* ---------------- refresh loop ---------------- */
+async function refresh() {
+  try {
+    if (view === "board") await renderBoard();
+    if (view === "case" && current) await renderCase();
+    document.querySelectorAll("#btn-chat").forEach(b => b.disabled = busy);
+  } catch (e) { console.error(e); if (view === "case") $("run-err").textContent = e.message; }
+}
+(async () => {
+  await loadPathways();
+  $("f-pathway").innerHTML = Object.values(PATHWAYS).map(p => `<option value="${esc(p.id)}">${esc(pathwayLabel(p))}</option>`).join("");
+  route();
+  setInterval(() => { if (!busy && view !== "admit" && !document.activeElement?.closest(".composer")) refresh(); }, 5000);
+})();
+</script>
+</body>
+</html>

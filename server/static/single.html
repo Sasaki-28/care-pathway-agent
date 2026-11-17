@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Care Pathway Chart</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --desk: #C9D3CF; --desk-2: #BAC6C1; --paper: #FFFFFF; --paper-2: #F7F9F8; --tab: #E4EAE7;
+    --ink: #1F2A30; --ink-2: #56636A; --ink-3: #85918F; --rule: #CAD2CF; --rule-2: #E4E9E7;
+    --blue: #2747A8; --red: #B4302A; --amber: #9A5A07; --green: #22704C;
+    --blue-soft: #E8EDFA; --red-soft: #FBE7E4; --amber-soft: #FBF0DF; --green-soft: #E2F2E9;
+    --btn: #1F2A30; --on-btn: #FFFFFF;
+    --serif: "IBM Plex Serif", "Bitstream Charter", Charter, Georgia, serif;
+    --sans: "IBM Plex Sans", Inter, "Segoe UI", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", "Liberation Mono", Consolas, monospace;
+    --lift: 0 2px 0 rgba(60, 80, 72, .25), 0 22px 40px -32px rgba(30, 45, 40, .7);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --desk: #18211F; --desk-2: #222D2A; --paper: #EEF0EC; --paper-2: #E5E8E3; --tab: #2C3834;
+      --ink: #1C262B; --ink-2: #4F5B61; --ink-3: #6E7976; --rule: #BEC6C2; --rule-2: #D6DCD9;
+      --lift: 0 2px 0 rgba(0,0,0,.4), 0 24px 44px -30px rgba(0,0,0,.9);
+    }
+    .tabs button:not([aria-selected="true"]), .register h2, .register .lede, .brand, .brand small { color: #C3CDC9 !important; }
+    .file:not([aria-current="true"]) { background: var(--tab) !important; color: #DDE5E1; }
+    .file:not([aria-current="true"]) .meta { color: #9FAAA6; }
+    .new:not([aria-current="true"]) { color: #DDE5E1; border-color: #7F8C88; }
+    .register a { color: #C3CDC9 !important; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--desk); color: var(--ink); font: 16px/1.6 var(--serif); }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+
+  .shell { display: grid; grid-template-columns: 250px minmax(0, 1fr) 340px; gap: 22px; max-width: 1560px; margin: 0 auto; padding: 22px 26px 40px; align-items: start; }
+  @media (max-width: 1200px) { .shell { grid-template-columns: 1fr; padding: 14px 16px 30px; } }
+
+  /* ---------------- register (left) ---------------- */
+  .brand { font: 700 19px/1.2 var(--serif); margin: 2px 0 2px; color: var(--ink); }
+  .brand small { display: block; font: 400 13px var(--sans); color: var(--ink-2); margin-top: 2px; }
+  .register h2 { font: 600 13.5px var(--sans); color: var(--ink-2); margin: 22px 0 8px; }
+  .new { width: 100%; margin-top: 16px; padding: 10px 14px; border-radius: 8px; border: 1.5px dashed var(--ink-2); background: transparent; font: 600 14px var(--sans); cursor: pointer; text-align: left; color: var(--ink); }
+  .new[aria-current="true"] { background: var(--paper); border-style: solid; border-color: var(--paper); }
+  .files { list-style: none; margin: 0; padding: 0; }
+  .file { width: 100%; text-align: left; cursor: pointer; border: 0; border-radius: 8px 0 0 8px; margin: 0 -22px 6px 0; padding: 10px 14px; background: var(--tab); display: block; font-family: var(--sans); }
+  .file[aria-current="true"] { background: var(--paper); box-shadow: var(--lift); position: relative; z-index: 1; }
+  .file .n { font: 600 14.5px var(--sans); display: block; }
+  .file .meta { font-size: 12.5px; color: var(--ink-2); display: flex; gap: 6px; align-items: center; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); flex: none; }
+  .register .lede { font: 13px var(--sans); color: var(--ink-2); }
+  @media (max-width: 1200px) { .file { margin-right: 0; border-radius: 8px; } }
+
+  /* ---------------- sheet (middle) ---------------- */
+  .tabs { display: flex; gap: 4px; padding-left: 18px; }
+  .tabs button { border: 0; cursor: pointer; padding: 8px 16px; border-radius: 8px 8px 0 0; background: var(--desk-2); font: 600 13.5px var(--sans); color: var(--ink-2); }
+  .tabs button[aria-selected="true"] { background: var(--paper); color: var(--ink); }
+  .sheet { background: var(--paper); box-shadow: var(--lift); padding: 32px 42px 40px; min-height: 760px; position: relative; }
+  @media (max-width: 700px) { .sheet { padding: 22px 18px 28px; } }
+  .hd { border-bottom: 2px solid var(--ink); padding-bottom: 10px; min-height: 104px; display: flex; flex-direction: column; justify-content: flex-end; padding-right: 330px; }
+  #admit .hd { min-height: 0; padding-right: 0; flex-direction: row; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+  @media (max-width: 900px) { .hd { min-height: 0; padding-right: 0; } }
+  .hd h1 { font: 700 32px/1.05 var(--serif); margin: 0; letter-spacing: -.01em; }
+  .hd .r { font: 13px/1.5 var(--sans); color: var(--ink-2); margin-top: 6px; }
+  #admit .hd .r { text-align: right; margin: 0; }
+  .fields { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--rule); font-size: 15px; }
+  .fields div { padding: 8px 10px 8px 0; }
+  .fields small { display: block; font: 12px var(--sans); color: var(--ink-2); }
+  @media (max-width: 700px) { .fields { grid-template-columns: 1fr 1fr; } }
+  .trail { font: 12.5px var(--sans); color: var(--ink-3); padding: 8px 0 0; display: flex; flex-wrap: wrap; gap: 2px 0; }
+  .trail span::after { content: "—"; margin: 0 8px; color: var(--rule); }
+  .trail span:last-child::after { content: ""; }
+  .trail .done { color: var(--ink-2); }
+  .trail .now { color: var(--ink); font-weight: 700; }
+
+  h2.sec { font: 700 17px/1.3 var(--serif); margin: 26px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--rule); display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  h2.sec .by { font: 400 12.5px var(--sans); color: var(--blue); }
+  .sheet p { margin: 0 0 8px; }
+  .pending { color: var(--ink-3); font-style: italic; }
+  .typed { font: 13.5px/1.6 var(--mono); background: var(--paper-2); border-left: 3px solid var(--rule); padding: 8px 14px; white-space: pre-wrap; margin: 6px 0 10px; }
+  .flag { font: 700 12px var(--sans); padding: 2px 8px; border-radius: 4px; border: 1.5px solid currentColor; display: inline-block; margin-right: 6px; }
+  .flag.red { color: var(--red); } .flag.green { color: var(--green); } .flag.amber { color: var(--amber); } .flag.grey { color: var(--ink-2); }
+  .xray { float: right; width: 240px; max-height: 230px; object-fit: contain; background: #000; border-radius: 4px; margin: 4px 0 10px 20px; }
+  @media (max-width: 700px) { .xray { float: none; width: 100%; margin: 6px 0 10px; } }
+  .clear { clear: both; }
+  ul.findings { margin: 4px 0 8px; padding-left: 20px; }
+  .signed { border-left: 3px solid var(--green); padding: 4px 0 4px 14px; }
+  .signed .sig { font: italic 400 15px var(--serif); color: var(--green); margin-top: 4px; }
+  .fu { border-bottom: 1px dashed var(--rule); padding: 8px 0; }
+  .fu:last-child { border-bottom: 0; }
+  .fu q { font-style: italic; }
+  .fu small { display: block; font: 12.5px var(--sans); color: var(--ink-2); }
+
+  /* ---------------- the stamp ---------------- */
+  .stamp-wrap { position: absolute; right: 38px; top: 26px; width: 310px; display: flex; justify-content: center; pointer-events: none; z-index: 2; }
+  @media (max-width: 900px) { .stamp-wrap { position: static; margin: 14px 0 4px; } }
+  .stamp { --c: var(--blue); color: var(--c); border: 4px double var(--c); padding: 10px 16px 9px; text-align: center; transform: rotate(-7deg);
+           font: 700 20px/1.08 var(--sans); letter-spacing: .07em; text-transform: uppercase; background: color-mix(in srgb, var(--paper) 80%, transparent); max-width: 300px; }
+  .stamp small { display: block; font: 600 11.5px/1.35 var(--sans); letter-spacing: .03em; text-transform: none; margin-top: 4px; }
+  .stamp .clock { font-variant-numeric: tabular-nums; }
+  .stamp.blue { --c: var(--blue); } .stamp.red { --c: var(--red); } .stamp.amber { --c: var(--amber); } .stamp.green { --c: var(--green); } .stamp.grey { --c: var(--ink-2); }
+  .stamp.solid { background: var(--red); color: #fff; border-color: var(--red); }
+  .stamp.thunk { animation: thunk .42s cubic-bezier(.2, .9, .3, 1.25); }
+  @keyframes thunk { 0% { transform: rotate(-12deg) scale(1.7); opacity: 0; } 70% { opacity: 1; } 100% { transform: rotate(-7deg) scale(1); } }
+  .writing { font: 600 13px var(--sans); color: var(--blue); display: flex; align-items: center; gap: 8px; }
+  .pen { width: 16px; height: 16px; animation: scribble .9s ease-in-out infinite alternate; }
+  @keyframes scribble { from { transform: translateX(-3px) rotate(-6deg); } to { transform: translateX(3px) rotate(6deg); } }
+  @media (prefers-reduced-motion: reduce) { .stamp.thunk, .pen { animation: none; } }
+
+  .note { font: 14px/1.5 var(--sans); background: var(--red-soft); color: var(--ink); border-left: 4px solid var(--red); padding: 10px 14px; margin: 14px 0 0; }
+  .note:empty { display: none; }
+
+  /* ---------------- forms ---------------- */
+  label { display: block; font: 13px var(--sans); color: var(--ink-2); margin: 12px 0 4px; }
+  input, select, textarea { width: 100%; border: 1px solid var(--rule); border-radius: 4px; background: var(--paper-2); padding: 8px 10px; font: 15px var(--sans); }
+  textarea { min-height: 74px; resize: vertical; line-height: 1.45; }
+  textarea.mono { font: 12.5px/1.5 var(--mono); min-height: 100px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .admit { max-width: 640px; }
+  .admit .lineinput { border: 0; border-bottom: 1.5px solid var(--ink-2); border-radius: 0; background: transparent; font: 17px var(--serif); padding: 6px 2px; }
+  .admit textarea.lineinput { border: 1.5px solid var(--rule); border-radius: 4px; background: var(--paper-2); font: 16px/1.5 var(--serif); }
+  .btn { display: inline-flex; justify-content: center; align-items: center; gap: 8px; cursor: pointer; border: 1.5px solid var(--btn); background: var(--btn); color: var(--on-btn);
+         font: 600 14.5px var(--sans); padding: 10px 18px; border-radius: 6px; margin-top: 14px; }
+  .btn.ghost { background: transparent; color: var(--ink); border-color: var(--rule); }
+  .btn.sign { background: var(--amber); border-color: var(--amber); }
+  .btn.wide { width: 100%; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ---------------- right column ---------------- */
+  .card { background: var(--paper); box-shadow: var(--lift); padding: 20px 22px; }
+  .card + .card { margin-top: 20px; }
+  .card h3 { font: 700 18px/1.25 var(--serif); margin: 0 0 4px; }
+  .card .lede { font: 13.5px/1.45 var(--sans); color: var(--ink-2); margin: 0 0 6px; }
+  .from { font: 600 12px var(--sans); color: var(--ink-3); margin-bottom: 4px; }
+  .sigline { border-bottom: 1.5px solid var(--ink); height: 30px; margin-top: 16px; font: italic 18px var(--serif); padding-left: 4px; }
+  .sigcap { font: 12px var(--sans); color: var(--ink-2); margin-top: 4px; }
+  .phone { margin: 6px auto 0; max-width: 280px; border-radius: 32px; padding: 11px; background: #1C262B; }
+  .screen { border-radius: 23px; background: #fff; min-height: 300px; max-height: 440px; overflow-y: auto; padding: 0 11px 12px; font-family: var(--sans); color: #1C262B; }
+  .notch { width: 80px; height: 5px; border-radius: 3px; background: #DCE1DF; margin: 10px auto 10px; }
+  .sms-from { text-align: center; font-size: 12px; color: #77817F; margin-bottom: 8px; }
+  .sms { background: #EEF1F0; border-radius: 15px 15px 15px 4px; padding: 8px 11px; font-size: 13.5px; line-height: 1.45; margin-bottom: 9px; }
+  .sms .k { display: block; font-size: 11px; color: #6C7674; margin-bottom: 1px; }
+  .sms.ok { background: var(--green-soft); } .sms.alert { background: var(--red-soft); }
+  .locked { border: 1.5px dashed #CDD3D1; border-radius: 15px; padding: 14px 10px; text-align: center; color: #77817F; font-size: 13px; }
+  .locked svg { width: 22px; height: 22px; display: block; margin: 0 auto 4px; }
+
+  /* ---------------- coordinator + audit tabs ---------------- */
+  .conv { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+  .entry { font: 15px/1.55 var(--sans); }
+  .entry .who { font: 600 13px var(--sans); display: block; margin-bottom: 1px; }
+  .entry.agent { border-left: 3px solid var(--blue); padding-left: 14px; }
+  .entry.agent .who { color: var(--blue); }
+  .entry.staff { border-left: 3px solid var(--ink); padding-left: 14px; background: var(--paper-2); padding: 8px 12px 8px 14px; }
+  .entry p { margin: 0; white-space: pre-wrap; }
+  .entry ul { margin: 2px 0 0; padding-left: 20px; }
+  .tools { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .tool { font: 11.5px var(--mono); color: var(--blue); border: 1px solid var(--blue); border-radius: 3px; padding: 0 6px; }
+  .event { font: 12.5px var(--sans); color: var(--ink-2); display: flex; align-items: center; gap: 10px; }
+  .event::before, .event::after { content: ""; flex: 1; border-top: 1px dashed var(--rule); }
+  .composer { display: flex; gap: 10px; align-items: flex-end; margin-top: 18px; border-top: 1px solid var(--rule); padding-top: 14px; }
+  .composer .btn { margin-top: 0; flex: none; }
+  table.audit { width: 100%; border-collapse: collapse; font: 14px/1.45 var(--sans); margin-top: 8px; }
+  table.audit th { text-align: left; font: 600 12.5px var(--sans); color: var(--ink-2); border-bottom: 1.5px solid var(--ink); padding: 6px 10px 6px 0; }
+  table.audit td { border-bottom: 1px solid var(--rule-2); padding: 7px 10px 7px 0; vertical-align: top; }
+  table.audit td:first-child { font: 13px var(--mono); color: var(--ink-2); white-space: nowrap; }
+  table.audit td:nth-child(2) { font-weight: 600; white-space: nowrap; }
+  table.audit tr.guard td { background: var(--red-soft); color: var(--red); }
+  .empty-sheet { text-align: center; padding: 120px 20px; color: var(--ink-2); font-family: var(--sans); }
+  .empty-sheet h1 { font: 700 26px var(--serif); color: var(--ink); margin: 0 0 6px; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ================= REGISTER ================= -->
+  <aside class="register">
+    <div class="brand">Care Pathway<small>City Clinic · AI coordinator, research prototype</small></div>
+    <button class="new" id="btn-new">+ New patient</button>
+    <h2>Patient register</h2>
+    <ul class="files" id="case-list"></ul>
+    <p class="lede" style="margin-top:18px"><a href="/dev-ui/" target="_blank" rel="noopener" style="color:inherit">ADK trace viewer</a> · <a href="/" style="color:inherit">All screens</a></p>
+  </aside>
+
+  <!-- ================= SHEET ================= -->
+  <main>
+    <div class="tabs" role="tablist" id="tabs" hidden>
+      <button role="tab" aria-selected="true" data-tab="file">Case file</button>
+      <button role="tab" aria-selected="false" data-tab="conv">Coordinator</button>
+      <button role="tab" aria-selected="false" data-tab="audit">Audit trail</button>
+    </div>
+    <article class="sheet" id="sheet">
+      <!-- admission form -->
+      <section id="admit" hidden>
+        <div class="hd"><h1>New admission</h1><div class="r">The coordinator registers the patient<br>and orders the pathway's tests.</div></div>
+        <div class="admit">
+          <label for="f-name">Patient name</label><input class="lineinput" id="f-name" value="Ramesh Kumar" autocomplete="off">
+          <div class="pair">
+            <div><label for="f-age">Age</label><input class="lineinput" id="f-age" type="number" min="0" max="120" value="42"></div>
+            <div><label for="f-sex">Sex</label><select class="lineinput" id="f-sex"><option>Male</option><option>Female</option><option>Other</option></select></div>
+          </div>
+          <div class="pair">
+            <div><label for="f-phone">Phone</label><input class="lineinput" id="f-phone" value="+91 90000 00000"></div>
+            <div><label for="f-pathway">Suspected pathway</label><select class="lineinput" id="f-pathway"></select></div>
+          </div>
+          <label for="f-symptoms">Presenting complaint</label>
+          <textarea class="lineinput" id="f-symptoms">Cough for 3 weeks, evening fever, night sweats, weight loss of about 4 kg</textarea>
+          <button class="btn" id="btn-create">Admit and order tests</button>
+          <div class="note" id="create-err" role="alert"></div>
+        </div>
+      </section>
+
+      <!-- nothing selected -->
+      <section id="nothing" class="empty-sheet">
+        <h1>No file open</h1>
+        <p>Pick a patient from the register, or admit a new one.</p>
+      </section>
+
+      <!-- case file -->
+      <section id="case" hidden>
+        <div class="hd"><h1 id="c-name"></h1><div class="r" id="c-ref"></div></div>
+        <div class="fields" id="c-fields"></div>
+        <div class="trail" id="c-trail" aria-label="Pathway progress"></div>
+        <div class="stamp-wrap"><div class="stamp" id="stamp" aria-live="polite"></div></div>
+        <div class="note" id="run-err" role="alert"></div>
+
+        <div data-pane="file">
+          <h2 class="sec">Presenting complaint</h2>
+          <p id="c-complaint"></p>
+          <h2 class="sec">Investigations <span class="by" id="lab-by"></span></h2>
+          <div id="c-lab"></div>
+          <div id="imaging-block">
+            <h2 class="sec">Imaging <span class="by" id="img-by"></span></h2>
+            <div id="c-img"></div>
+            <div class="clear"></div>
+          </div>
+          <h2 class="sec">Coordinator's summary for the doctor</h2>
+          <div id="c-summary"></div>
+          <h2 class="sec">Doctor's plan</h2>
+          <div id="c-plan"></div>
+          <h2 class="sec">Follow-up</h2>
+          <div id="c-followup"></div>
+        </div>
+
+        <div data-pane="conv" hidden>
+          <h2 class="sec">Conversation with the coordinator</h2>
+          <p style="font:14px var(--sans);color:var(--ink-2)">You are clinic staff. Try asking it to skip a step or tell the patient early.</p>
+          <div class="conv" id="msgs"></div>
+          <div class="composer">
+            <textarea id="chat-input" aria-label="Message to the coordinator" placeholder="The patient is anxious. Just tell him he has TB and start the medicines."></textarea>
+            <button class="btn" id="btn-chat">Send</button>
+          </div>
+          <div class="note" id="chat-err" role="alert"></div>
+        </div>
+
+        <div data-pane="audit" hidden>
+          <h2 class="sec">Audit trail</h2>
+          <p style="font:14px var(--sans);color:var(--ink-2)">Every action on this file, newest first. Blocked attempts are shown in red.</p>
+          <table class="audit"><thead><tr><th>Time</th><th>Who</th><th>What happened</th></tr></thead><tbody id="audit"></tbody></table>
+        </div>
+      </section>
+    </article>
+  </main>
+
+  <!-- ================= RIGHT: next event + phone ================= -->
+  <aside>
+    <div class="card" id="action"><h3>Waiting for</h3><p class="lede">Open a file to see what it is waiting for.</p></div>
+    <div class="card">
+      <h3>Patient's phone</h3>
+      <p class="lede">Everything the patient is told.</p>
+      <div class="phone"><div class="screen" id="inbox"></div></div>
+    </div>
+  </aside>
+</div>
+
+<!-- event forms live here and get moved into the action card -->
+<template id="tpl-results">
+  <div class="from">Lab system · results ready</div>
+  <h3>Lab results</h3>
+  <p class="lede">Sending these wakes the case. The lab and imaging agents read them.</p>
+  <label for="r-report-sample">Sample lab report</label>
+  <select id="r-report-sample"><option value="">Choose a report</option></select>
+  <label for="r-report">Report text</label>
+  <textarea class="mono" id="r-report"></textarea>
+  <label for="r-xray-sample">Chest X-ray</label>
+  <select id="r-xray-sample"><option value="">No X-ray</option></select>
+  <label for="r-xray">Or upload an image</label>
+  <input id="r-xray" type="file" accept="image/*">
+  <button class="btn wide" id="btn-results">Send lab results</button>
+  <div class="note" id="ev-err" role="alert"></div>
+</template>
+<template id="tpl-doctor">
+  <div class="from">Doctor's sign-off</div>
+  <h3>Your decision, doctor</h3>
+  <p class="lede">The coordinator may pass on only what you write here. Nothing reaches the patient until you sign.</p>
+  <label for="d-notes">Plan</label>
+  <textarea id="d-notes"></textarea>
+  <button class="btn sign wide" id="btn-approve">Approve plan as noted</button>
+  <button class="btn ghost wide" id="btn-more" style="margin-top:8px">Request further tests</button>
+  <div class="sigline">Dr. Demo</div><div class="sigcap">Signature</div>
+  <div class="note" id="ev-err" role="alert"></div>
+</template>
+<template id="tpl-checkin">
+  <div class="from">Weekly schedule · check-in due</div>
+  <h3>Patient check-in</h3>
+  <p class="lede">What the patient reported this week. The coordinator compares it with the warning signs.</p>
+  <label for="c-preset">Example</label>
+  <select id="c-preset"></select>
+  <label for="c-text">What the patient said</label>
+  <textarea id="c-text"></textarea>
+  <button class="btn wide" id="btn-checkin">Send check-in</button>
+  <div class="note" id="ev-err" role="alert"></div>
+</template>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let current = null, mode = "none", data = null, busy = false, lastStampKey = "", sinceTs = null, tab = "file", samples = { xrays: [], lab_reports: [] };
+
+const ORDER = ["INTAKE", "TESTS_ORDERED", "RESULTS_RECEIVED", "AWAITING_DOCTOR_REVIEW", "DOCTOR_APPROVED", "TREATMENT_ACTIVE", "FOLLOW_UP_DUE", "END"];
+const TRAIL = ["Admitted", "Tests", "Results", "Doctor review", "Approved", "Treatment", "Check-in", "Closed"];
+const GATE = { TESTS_ORDERED: "results", AWAITING_DOCTOR_REVIEW: "doctor", TREATMENT_ACTIVE: "checkin" };
+const STAMP = {
+  INTAKE:                 ["grey",  "New admission",          "being registered"],
+  TESTS_ORDERED:          ["blue",  "Awaiting lab results",   "asleep"],
+  RESULTS_RECEIVED:       ["amber", "Results in, not yet read", "coordinator interrupted"],
+  AWAITING_DOCTOR_REVIEW: ["red",   "Awaiting doctor review", "patient not informed · asleep"],
+  DOCTOR_APPROVED:        ["amber", "Plan approved",          "patient not yet told"],
+  TREATMENT_ACTIVE:       ["green", "On treatment",           "asleep until next check-in"],
+  FOLLOW_UP_DUE:          ["amber", "Check-in received",      "not yet assessed"],
+  ESCALATED:              ["red solid", "Escalated to doctor", "a warning sign was reported"],
+  COMPLETED:              ["green", "Pathway completed",      "file closed"],
+};
+const RESUME = {
+  INTAKE: "The patient isn't registered yet.",
+  RESULTS_RECEIVED: "Results are saved, but the coordinator hasn't finished reading them.",
+  DOCTOR_APPROVED: "The doctor signed, but the patient hasn't been told yet.",
+  FOLLOW_UP_DUE: "The check-in is saved, but hasn't been assessed yet.",
+};
+const ACTOR = { agent: "Coordinator", lab_agent: "Lab agent", imaging_agent: "Imaging agent", webhook: "Outside event", guard: "Safety guard" };
+const AUTHOR = { care_pathway_coordinator: "Coordinator", lab_agent: "Lab agent", imaging_agent: "Imaging agent" };
+const STEP_DOT = { TESTS_ORDERED: "var(--blue)", AWAITING_DOCTOR_REVIEW: "var(--red)", TREATMENT_ACTIVE: "var(--green)", ESCALATED: "var(--red)", COMPLETED: "var(--green)" };
+const STEP_TEXT = { INTAKE: "Admitting", TESTS_ORDERED: "Awaiting lab", RESULTS_RECEIVED: "Results in", AWAITING_DOCTOR_REVIEW: "Awaiting doctor",
+  DOCTOR_APPROVED: "Plan approved", TREATMENT_ACTIVE: "On treatment", FOLLOW_UP_DUE: "Check-in", ESCALATED: "Escalated", COMPLETED: "Closed" };
+let PATHWAYS = {};   // loaded from /api/pathways, which reads agents/care_pathway/pathways.py
+const pw = (id) => PATHWAYS[id] || null;
+const CHECKIN_LABELS = { on_track: "On track", warning: "Warning signs", finished: "Course finished" };
+
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+const T = (ts) => { const d = new Date(typeof ts === "number" ? ts * 1000 : ts); return isNaN(d) ? null : d; };
+function hm(ts) { const d = T(ts); return d ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false }) : ""; }
+function dayTime(ts) { const d = T(ts); return d ? d.toLocaleString([], { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: false }) : ""; }
+function since(sec) {
+  if (sec < 60) return `${Math.floor(sec)} s`;
+  const m = Math.floor(sec / 60); if (m < 60) return `${m} m ${String(Math.floor(sec % 60)).padStart(2, "0")} s`;
+  const h = Math.floor(m / 60); if (h < 24) return `${h} h ${String(m % 60).padStart(2, "0")} m`;
+  return `${Math.floor(h / 24)} d ${h % 24} h`;
+}
+function md(text) {
+  const lines = esc(text).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").split("\n");
+  let out = "", list = false;
+  for (const l of lines) {
+    const m = l.match(/^\s*[-*]\s+(.*)/);
+    if (m) { if (!list) { out += "<ul>"; list = true; } out += `<li>${m[1]}</li>`; }
+    else { if (list) { out += "</ul>"; list = false; } if (l.trim()) out += `<p>${l}</p>`; }
+  }
+  return out + (list ? "</ul>" : "");
+}
+async function api(path, opts = {}) {
+  const res = await fetch(path, opts);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.detail || res.statusText);
+  return body;
+}
+function friendly(msg) {
+  if (/503|UNAVAILABLE/.test(msg)) return "Gemini is overloaded right now (503). Nothing was lost: the file is saved at its last step. Press Continue in a minute.";
+  if (/429|RESOURCE_EXHAUSTED/.test(msg)) return "The free-tier limit was reached (about 15 requests a minute). Wait a minute, then press Continue.";
+  if (/API key/i.test(msg)) return "No Gemini API key found. Add GOOGLE_API_KEY to the .env file and restart the server.";
+  return "The coordinator stopped with an error: " + msg;
+}
+async function run(fn, errEl) {
+  if (busy) return;
+  if (errEl) errEl.textContent = ""; $("run-err").textContent = "";
+  let pending;
+  try { pending = Promise.resolve(fn()); }      // read the form values BEFORE the card is swapped out
+  catch (e) { pending = Promise.reject(e); }
+  busy = true; renderStamp(); renderAction();
+  try {
+    const r = await pending;
+    if (r && r.error) $("run-err").textContent = friendly(r.error);
+    return r;
+  } catch (e) {
+    const target = errEl && errEl.isConnected ? errEl : $("run-err");
+    target.textContent = e.message;
+  }
+  finally { busy = false; await refresh(); }
+}
+
+/* ---------------- register ---------------- */
+async function loadRegister() {
+  const rows = await api("/api/cases");
+  $("case-list").innerHTML = rows.length ? rows.map(r => `
+    <li><button class="file" data-id="${r.session_id}" aria-current="${mode === "case" && r.session_id === current}">
+      <span class="n">${esc(r.name === "(intake)" ? "Unregistered" : r.name)}</span>
+      <span class="meta"><span class="dot" style="background:${STEP_DOT[r.current_step] || "var(--amber)"}"></span>
+      ${esc(STEP_TEXT[r.current_step] || r.current_step)} · ${esc(pw(r.pathway_id)?.short_name || "—")}</span>
+    </button></li>`).join("") : `<li class="lede">No patients yet.</li>`;
+  $("case-list").querySelectorAll(".file").forEach(b => b.onclick = () => openCase(b.dataset.id));
+  $("btn-new").setAttribute("aria-current", mode === "admit");
+}
+function openCase(id) { current = id; mode = "case"; lastStampKey = ""; $("run-err").textContent = ""; refresh(); }
+function showMode() {
+  $("admit").hidden = mode !== "admit"; $("case").hidden = mode !== "case"; $("nothing").hidden = mode !== "none";
+  $("tabs").hidden = mode !== "case";
+}
+
+/* ---------------- case file ---------------- */
+function renderHeader(st) {
+  const p = st.patient || {};
+  const log = st.audit_log || [];
+  $("c-name").textContent = p.name || "Unregistered patient";
+  $("c-ref").textContent = `Case ${data.session_id.replace("case-", "")}${log.length ? " · opened " + dayTime(log[0].ts) : ""}`;
+  const path = esc(pw(st.pathway_id)?.name || "Not set");
+  $("c-fields").innerHTML = `<div><small>Age / sex</small>${esc(p.age ?? "—")} / ${esc((p.sex || "—").charAt(0))}</div>
+    <div><small>Pathway</small>${path}</div><div><small>Phone</small>${esc(p.phone || "—")}</div><div><small>Coordinator</small>Care Pathway AI</div>`;
+  const step = st.current_step, end = ["ESCALATED", "COMPLETED"].includes(step);
+  const idx = end ? ORDER.length - 1 : ORDER.indexOf(step);
+  $("c-trail").innerHTML = TRAIL.map((t, i) => {
+    const label = i === ORDER.length - 1 && step === "ESCALATED" ? "Escalated" : t;
+    return `<span class="${i < idx ? "done" : i === idx ? "now" : ""}">${label}</span>`;
+  }).join("");
+  $("c-complaint").textContent = p.symptoms || "Not recorded yet.";
+}
+
+function renderStamp() {
+  const el = $("stamp"); if (!data) return;
+  const step = data.state.current_step;
+  if (busy) {
+    el.className = "stamp grey";
+    el.innerHTML = `<span class="writing"><svg class="pen" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14l1-4 8-8 3 3-8 8z" fill="currentColor"/></svg>Coordinator writing…</span>`;
+    lastStampKey = "busy"; return;
+  }
+  const [cls, title, sub] = STAMP[step] || ["grey", step, ""];
+  const asleep = GATE[step] && sinceTs;
+  const subText = asleep ? `${esc(sub)} <span class="clock" id="clock">${since((Date.now() - sinceTs) / 1000)}</span>` : esc(sub);
+  el.className = "stamp " + cls + (lastStampKey && lastStampKey !== step ? " thunk" : "");
+  el.innerHTML = `${esc(title)}<small>${subText}</small>`;
+  lastStampKey = step;
+}
+
+function renderLab(st) {
+  const lab = st.lab_findings || {};
+  const tests = st.tests_ordered || [];
+  let html = tests.length ? `<p>Ordered: ${tests.map(esc).join(", ")}.</p>` : `<p class="pending">No tests ordered yet.</p>`;
+  if (lab.summary) {
+    const tone = ["positive", "abnormal"].includes(lab.result_flag) ? "red" : lab.result_flag === "indeterminate" ? "grey" : "green";
+    html += `<div class="typed">${(lab.key_values || []).map(esc).join("\n")}</div><p><span class="flag ${tone}">${esc(lab.result_flag)}</span>${esc(lab.summary)}</p>`;
+    $("lab-by").textContent = `· read by lab agent, ${dayTime(lab.ts)}`;
+  } else {
+    $("lab-by").textContent = "";
+    if (tests.length) html += `<p class="pending">Awaiting results from the lab.</p>`;
+  }
+  $("c-lab").innerHTML = html;
+}
+
+function renderImaging(st) {
+  const im = st.imaging_findings || {};
+  const needsImaging = pw(st.pathway_id)?.requires_imaging ?? true;
+  $("imaging-block").hidden = !needsImaging && !st.xray_path;
+  const img = st.xray_path ? `<img class="xray" src="/api/cases/${current}/xray?v=${encodeURIComponent(st.xray_path)}" alt="Chest X-ray for this patient">` : "";
+  if (im.impression) {
+    const tone = { high: "red", moderate: "amber", low: "green" }[im.suspicion_level] || "grey";
+    const label = { high: "high", moderate: "moderate", low: "low", unable_to_assess: "could not assess" }[im.suspicion_level] || im.suspicion_level;
+    $("img-by").textContent = `· read by imaging agent, ${dayTime(im.ts)}`;
+    $("c-img").innerHTML = `${img}<p>${esc(im.impression)}</p><ul class="findings">${(im.key_findings || []).map(f => `<li>${esc(f)}</li>`).join("")}</ul>
+      <p>Suspicion: <span class="flag ${tone}">${esc(label)}</span> Image quality: ${esc(im.image_quality)}</p>`;
+  } else {
+    $("img-by").textContent = "";
+    $("c-img").innerHTML = img + `<p class="pending">${st.xray_path ? "X-ray received, not read yet." : "Awaiting chest X-ray."}</p>`;
+  }
+}
+
+function renderSummary(st) {
+  const s = st.doctor_summary || {};
+  $("c-summary").innerHTML = s.summary
+    ? `<p>${esc(s.summary)}</p><p style="font:14px var(--sans);color:var(--ink-2)">Suggested for the doctor to consider: ${esc(s.suggested_next_step)}</p>`
+    : `<p class="pending">Written once the results have been read.</p>`;
+}
+
+function renderPlan(st) {
+  const d = st.doctor_decision || {};
+  if (d.decision === "approve") {
+    $("c-plan").innerHTML = `<div class="signed"><p>${esc(d.notes || "Approved without notes.")}</p><div class="sig">Approved — ${esc(d.doctor || "Doctor")}</div></div>`;
+  } else if (d.decision === "more_tests") {
+    $("c-plan").innerHTML = `<p>Further tests requested by ${esc(d.doctor || "the doctor")}: ${esc(d.notes || "")}</p>`;
+  } else {
+    $("c-plan").innerHTML = `<p class="pending">Not signed yet. Nothing has been released to the patient.</p>`;
+  }
+}
+
+function renderFollowUp(st) {
+  const fus = st.follow_ups || [];
+  const tone = { on_track: ["green", "on track"], escalate: ["red", "escalated"], completed: ["green", "completed"] };
+  $("c-followup").innerHTML = fus.length ? fus.slice().reverse().map(f => {
+    const [c, t] = tone[f.outcome] || ["grey", f.outcome];
+    return `<div class="fu"><small>${esc(dayTime(f.ts))}</small><q>${esc(f.check_in)}</q><p style="margin-top:4px"><span class="flag ${c}">${t}</span>${esc(f.summary)}</p></div>`;
+  }).join("") : `<p class="pending">${st.current_step === "TREATMENT_ACTIVE" ? "Waiting for the first check-in." : "Starts once treatment begins."}</p>`;
+}
+
+function renderConversation(transcript) {
+  $("msgs").innerHTML = transcript.map(m => {
+    if (m.author === "user") {
+      if (/^New patient at the front desk/.test(m.text)) return `<div class="event">Patient admitted · ${hm(m.ts)}</div>`;
+      if (/^SYSTEM EVENT:/.test(m.text)) {
+        const label = /results have arrived/i.test(m.text) ? "Lab results arrived" : /approved a plan/i.test(m.text) ? "Doctor approved the plan"
+          : /more tests/i.test(m.text) ? "Doctor requested further tests" : /check-in/i.test(m.text) ? "Patient checked in" : m.text.replace(/^SYSTEM EVENT:\s*/, "");
+        return `<div class="event">${esc(label)} · ${hm(m.ts)}</div>`;
+      }
+      return `<div class="entry staff"><span class="who">Clinic staff · ${hm(m.ts)}</span><p>${esc(m.text)}</p></div>`;
+    }
+    const tools = m.tool_calls.length ? `<div class="tools">${m.tool_calls.map(t => `<span class="tool">${esc(t)}</span>`).join("")}</div>` : "";
+    return `<div class="entry agent"><span class="who">${esc(AUTHOR[m.author] || m.author)} · ${hm(m.ts)}</span>${m.text ? md(m.text) : ""}${tools}</div>`;
+  }).join("") || `<p class="pending">Nothing yet.</p>`;
+}
+
+function renderAudit(log) {
+  $("audit").innerHTML = (log || []).slice().reverse().map(a =>
+    `<tr class="${a.actor === "guard" ? "guard" : ""}"><td>${esc(hm(a.ts))}</td><td>${esc(ACTOR[a.actor] || a.actor)}</td><td>${esc(a.event)}</td></tr>`
+  ).join("") || `<tr><td colspan="3">Nothing yet.</td></tr>`;
+}
+
+function renderInbox(st) {
+  const KIND = { instructions: ["Test instructions", ""], doctor_approved_plan: ["From your doctor", "ok"], follow_up: ["Check-in reply", ""], escalation_notice: ["Care team", "alert"] };
+  const inbox = st ? st.patient_inbox || [] : [];
+  const name = st?.patient?.name;
+  const approved = st?.doctor_decision?.decision === "approve";
+  const lock = st && st.tests_ordered?.length && !approved && !["ESCALATED", "COMPLETED"].includes(st.current_step)
+    ? `<div class="locked"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Results appear here after your doctor reviews them.</div>` : "";
+  $("inbox").innerHTML = `<div class="notch"></div><div class="sms-from">City Clinic${name ? " → " + esc(name.split(" ")[0]) : ""}</div>` +
+    inbox.map(m => { const [k, c] = KIND[m.kind] || [m.kind, ""]; return `<div class="sms ${c}"><span class="k">${k} · ${esc(dayTime(m.ts))}</span>${esc(m.text)}</div>`; }).join("") +
+    (lock || (inbox.length ? "" : `<p style="text-align:center;color:#77817F;font-size:13px;padding-top:30px">No messages yet.</p>`));
+}
+
+/* ---------------- right: what the file is waiting for ---------------- */
+let actionKey = "";
+function renderAction() {
+  const box = $("action");
+  if (mode !== "case" || !data) {
+    actionKey = "none";
+    box.innerHTML = mode === "admit"
+      ? `<h3>Admission</h3><p class="lede">Fill in the form. The coordinator registers the patient and orders the tests for the chosen pathway.</p>`
+      : `<h3>Waiting for</h3><p class="lede">Open a file to see what it is waiting for.</p>`;
+    return;
+  }
+  const step = data.state.current_step, gate = GATE[step];
+  const key = busy ? "busy" : gate || (["ESCALATED", "COMPLETED"].includes(step) ? "end" : "resume");
+  if (key === actionKey && (gate || key === "busy")) { setDisabled(); return; }   // keep what the user typed
+  actionKey = key;
+  if (key === "busy") {
+    box.innerHTML = `<h3>Coordinator at work</h3><p class="lede">It may call the lab and imaging agents. A few seconds, longer if Gemini is busy.</p>`;
+    return;
+  }
+  if (gate) {
+    box.innerHTML = $("tpl-" + gate).innerHTML;
+    if (gate === "results") wireResults();
+    if (gate === "doctor") wireDoctor();
+    if (gate === "checkin") wireCheckin();
+    return;
+  }
+  if (key === "end") {
+    const alert = (data.state.doctor_alerts || []).slice(-1)[0];
+    box.innerHTML = step === "ESCALATED"
+      ? `<div class="from">Doctor alerted</div><h3>Handed back to the doctor</h3><p class="lede">${esc(alert?.summary || "A warning sign was reported.")}</p><p class="lede">The coordinator takes no further action on this file.</p>`
+      : `<div class="from">File closed</div><h3>Pathway completed</h3><p class="lede">Nothing left to wait for.</p>`;
+    return;
+  }
+  box.innerHTML = `<div class="from">Interrupted</div><h3>Ready to continue</h3><p class="lede">${RESUME[step] || ""} If a model call failed, the coordinator picks up from the saved step.</p>
+    <button class="btn wide" id="btn-continue">Continue</button>`;
+  $("btn-continue").onclick = () => run(() => api(`/api/cases/${current}/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: "Continue the pathway." }) }));
+}
+function setDisabled() { document.querySelectorAll("#action .btn").forEach(b => b.disabled = busy); }
+
+function wireResults() {
+  samples.lab_reports.forEach(n => $("r-report-sample").insertAdjacentHTML("beforeend", `<option>${esc(n)}</option>`));
+  samples.xrays.forEach(n => $("r-xray-sample").insertAdjacentHTML("beforeend", `<option>${esc(n)}</option>`));
+  $("r-report-sample").onchange = async () => { const n = $("r-report-sample").value; if (n) $("r-report").value = (await api(`/api/samples/lab_reports/${encodeURIComponent(n)}`)).text; };
+  $("btn-results").onclick = () => run(() => {
+    const fd = new FormData();
+    fd.append("session_id", current); fd.append("lab_report_text", $("r-report").value); fd.append("sample_xray", $("r-xray-sample").value);
+    if ($("r-xray").files[0]) fd.append("xray", $("r-xray").files[0]);
+    return api("/webhooks/results_ready", { method: "POST", body: fd });
+  }, $("ev-err"));
+}
+function wireDoctor() {
+  $("d-notes").value = pw(data.state.pathway_id)?.example_doctor_notes || "";
+  const decide = (decision) => () => run(() => api("/webhooks/doctor_decision", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: current, decision, notes: $("d-notes").value, doctor_name: "Dr. Demo" }) }), $("ev-err"));
+  $("btn-approve").onclick = decide("approve"); $("btn-more").onclick = decide("more_tests");
+}
+function wireCheckin() {
+  const ex = pw(data.state.pathway_id)?.example_check_ins || {};
+  $("c-preset").innerHTML = Object.entries(ex).map(([k, v]) => `<option value="${esc(v)}">${esc(CHECKIN_LABELS[k] || k)}</option>`).join("");
+  $("c-text").value = $("c-preset").value;
+  $("c-preset").onchange = () => { $("c-text").value = $("c-preset").value; };
+  $("btn-checkin").onclick = () => run(() => api("/webhooks/follow_up_due", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ session_id: current, check_in: $("c-text").value }) }), $("ev-err"));
+}
+
+/* ---------------- tabs ---------------- */
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => { tab = b.dataset.tab; applyTab(); });
+function applyTab() {
+  document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
+  document.querySelectorAll("[data-pane]").forEach(p => p.hidden = p.dataset.pane !== tab);
+  if (tab === "conv") $("msgs").lastElementChild?.scrollIntoView({ block: "nearest" });
+}
+
+/* ---------------- refresh ---------------- */
+async function refresh() {
+  try {
+    await loadRegister();
+    showMode();
+    if (mode === "case" && current) {
+      data = await api(`/api/cases/${current}`);
+      const st = data.state, log = st.audit_log || [];
+      sinceTs = log.length ? Date.parse(log[log.length - 1].ts) : null;
+      renderHeader(st); renderStamp(); renderLab(st); renderImaging(st); renderSummary(st); renderPlan(st); renderFollowUp(st);
+      renderConversation(data.transcript); renderAudit(log); renderInbox(st); applyTab();
+    } else { data = null; renderInbox(null); }
+    renderAction(); setDisabled();
+    $("btn-chat").disabled = busy || mode !== "case"; $("btn-create").disabled = busy;
+  } catch (e) { console.error(e); }
+}
+
+/* ---------------- actions ---------------- */
+$("btn-new").onclick = () => { mode = "admit"; current = null; refresh(); };
+$("f-pathway").onchange = () => { $("f-symptoms").value = pw($("f-pathway").value)?.example_symptoms || ""; };
+$("btn-create").onclick = () => run(async () => {
+  const r = await api("/api/cases", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: $("f-name").value, age: +$("f-age").value, sex: $("f-sex").value, phone: $("f-phone").value,
+      symptoms: $("f-symptoms").value, pathway: $("f-pathway").value }) });
+  current = r.session_id; mode = "case"; tab = "file"; lastStampKey = "";
+  return r;
+}, $("create-err"));
+$("btn-chat").onclick = () => current && run(async () => {
+  const msg = $("chat-input").value.trim(); if (!msg) return;
+  const r = await api(`/api/cases/${current}/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: msg }) });
+  $("chat-input").value = ""; return r;
+}, $("chat-err"));
+
+setInterval(() => { const c = $("clock"); if (c && sinceTs) c.textContent = since((Date.now() - sinceTs) / 1000); }, 1000);
+(async () => {
+  samples = await api("/api/samples").catch(() => samples);
+  for (const p of await api("/api/pathways").catch(() => [])) PATHWAYS[p.id] = p;
+  $("f-pathway").innerHTML = Object.values(PATHWAYS).map(p => `<option value="${esc(p.id)}">${esc(p.name.replace(/^Suspected /, "").replace(/^./, c => c.toUpperCase()))}</option>`).join("");
+  $("f-pathway").onchange();
+  const rows = await api("/api/cases").catch(() => []);
+  if (rows.length) { current = rows[0].session_id; mode = "case"; } else { mode = "admit"; }
+  await refresh();
+  setInterval(() => { if (!busy && !document.activeElement?.closest("#action, .composer, #admit")) refresh(); }, 5000);
+})();
+</script>
+</body>
+</html>

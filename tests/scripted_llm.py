@@ -43,6 +43,7 @@ def _say(text: str) -> LlmResponse:
 
 
 MODE = {"misbehave": False, "parallel": False}   # switches flipped by tests
+SEEN_FILES: list[tuple[str, str]] = []           # (agent, mime type) of files attached to requests
 
 
 class ScriptedLlm(BaseLlm):
@@ -58,6 +59,8 @@ class ScriptedLlm(BaseLlm):
 
     def _next(self, req: LlmRequest) -> LlmResponse:
         system = _system_text(req)
+        who = "lab" if "lab report reader" in system else "imaging" if "imaging analysis assistant" in system else "coordinator"
+        SEEN_FILES.extend((who, p.inline_data.mime_type) for c in req.contents for p in (c.parts or []) if p.inline_data)
         # Tools already answered since the latest user (or system event) message.
         last_user = max((i for i, c in enumerate(req.contents)
                          if c.role == "user" and any(p.text for p in c.parts or [])), default=-1)

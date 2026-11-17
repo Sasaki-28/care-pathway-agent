@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Care Pathway</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/care.css">
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+
+<section class="hero">
+  <h1>One patient, four people,<br>one AI coordinator keeping them in step.</h1>
+  <p>The coordinator runs each patient's care pathway for days or months. It sleeps while it waits for the lab, the doctor or the patient, and wakes when they act. Nothing reaches the patient until a doctor signs. Choose who you are:</p>
+</section>
+
+<nav class="rolecards" aria-label="Choose a role">
+  <a class="rolecard" href="/clinic" style="--c:var(--blue)">
+    <span id="i-clinic"></span><h2>Clinic desk</h2>
+    <p>Admit patients, see every case on one board, open a case file, and talk to the coordinator.</p><span class="go">Open the clinic desk →</span>
+  </a>
+  <a class="rolecard" href="/lab" style="--c:var(--amber)">
+    <span id="i-lab"></span><h2>Lab</h2>
+    <p>Send results for patients whose tests are pending: a report as text, a photo or PDF of the report, and the chest X-ray.</p><span class="go">Open the lab screen →</span>
+  </a>
+  <a class="rolecard" href="/doctor" style="--c:var(--red)">
+    <span id="i-doctor"></span><h2>Doctor</h2>
+    <p>Your review queue: the AI's reading of the lab report and X-ray, its summary, and the sign-off that releases anything to the patient.</p><span class="go">Open the doctor's queue →</span>
+  </a>
+  <a class="rolecard" href="/clinic" style="--c:var(--green)" id="patient-card">
+    <span id="i-patient"></span><h2>Patient</h2>
+    <p>Patients get an email with a private link to their own page: their messages, a plain-language status, and weekly check-ins. Open a case on the clinic desk to see its patient page.</p><span class="go">Find a patient's page →</span>
+  </a>
+</nav>
+
+<section class="flow" aria-label="How a case moves">
+  <ol>
+    <li><b>Clinic</b> admits the patient; AI suggests a pathway, staff confirm.</li>
+    <li><b>Coordinator</b> orders the tests, emails the patient, then sleeps.</li>
+    <li><b>Lab</b> sends results; lab and imaging agents read them.</li>
+    <li><b>Doctor</b> reviews and signs, or asks for more tests.</li>
+    <li><b>Patient</b> is told and emailed, checks in weekly; warning signs go straight back to the doctor.</li>
+  </ol>
+</section>
+
+<p class="small-links">Other views: <a href="/clinic/single">one-screen demo console</a> · <a href="/clinic/classic">classic view</a> · <a href="/dev-ui/" target="_blank" rel="noopener">ADK trace viewer</a> · <a href="/docs" target="_blank" rel="noopener">API</a></p>
+
+<script src="/assets/care.js"></script>
+<script>
+topbar("");
+for (const k of ["clinic", "lab", "doctor", "patient"]) $("i-" + k).innerHTML = ICONS[k];
+</script>
+</body>
+</html>

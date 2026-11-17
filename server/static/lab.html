@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab Results · Care Pathway</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/care.css">
+<style>
+  .sheet { min-height: 520px; }
+  .hd { padding-right: 0; min-height: 0; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 26px; }
+  @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
+  .or { font: 600 12px var(--sans); color: var(--ink-3); text-transform: uppercase; letter-spacing: .06em; margin: 12px 0 0; }
+  .ordered { font: 15px var(--sans); }
+  .ordered li { margin: 2px 0; }
+  .lab-hint { font: 13px/1.5 var(--sans); color: var(--ink-2); margin: 4px 0 0; }
+</style>
+</head>
+<body>
+<header class="topbar" id="topbar"></header>
+<div class="page">
+  <div class="page-hd"><div><h1>Lab results</h1><p>A stand-in for the lab's own system. Sending results wakes the patient's case.</p></div></div>
+  <div class="split">
+    <aside class="queue">
+      <h2>Waiting for results <span class="count" id="n-wait"></span></h2><ul id="q-wait"></ul>
+      <h2>Sent recently</h2><ul id="q-sent"></ul>
+    </aside>
+    <article class="sheet">
+      <section id="nothing" class="empty-sheet"><h1>No case selected</h1><p>Pick a patient whose tests are pending.</p></section>
+      <section id="case" hidden>
+        <div class="hd"><h1 id="c-name"></h1><div class="r" id="c-ref"></div></div>
+        <h2 class="sec">Tests ordered</h2>
+        <ul class="ordered" id="c-tests"></ul>
+        <div id="form">
+          <div class="grid2">
+            <div>
+              <h2 class="sec">Lab report</h2>
+              <label for="r-file">Photo or PDF of the report</label>
+              <input id="r-file" type="file" accept="image/png,image/jpeg,image/webp,application/pdf">
+              <p class="lab-hint">The lab agent reads the photo directly. Names and ID numbers on it are ignored. Use a redacted report.</p>
+              <p class="or">or type it</p>
+              <label for="r-sample">Sample report</label>
+              <select id="r-sample"><option value="">Choose a sample</option></select>
+              <label for="r-text">Report text</label>
+              <textarea class="mono" id="r-text" style="min-height:180px"></textarea>
+            </div>
+            <div id="xray-col">
+              <h2 class="sec">Chest X-ray</h2>
+              <label for="x-sample">Sample image</label>
+              <select id="x-sample"><option value="">No X-ray</option></select>
+              <p class="or">or upload</p>
+              <label for="x-file">X-ray image</label>
+              <input id="x-file" type="file" accept="image/png,image/jpeg,image/webp">
+              <p class="lab-hint" id="x-hint"></p>
+            </div>
+          </div>
+          <button class="btn" id="btn-send">Send results to the clinic</button>
+          <div class="busy-line" id="busy" hidden><svg class="pen" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14l1-4 8-8 3 3-8 8z" fill="currentColor"/></svg>The lab and imaging agents are reading the results…</div>
+          <div class="note" id="err" role="alert"></div>
+        </div>
+        <div class="okay" id="ok" role="status"></div>
+      </section>
+    </article>
+  </div>
+</div>
+
+<script src="/assets/care.js"></script>
+<script>
+topbar("lab", "You are the lab: you send results back. You never see the AI's findings or the doctor's decision.");
+let current = location.hash.slice(1) || null, busy = false, shownFor = "", samples = { xrays: [], lab_reports: [] };
+const sentHere = [];
+
+async function renderQueue() {
+  const rows = await api("/api/cases");
+  const waiting = rows.filter(r => r.current_step === "TESTS_ORDERED").sort((a, b) => (a.since || "").localeCompare(b.since || ""));
+  $("q-wait").innerHTML = waiting.map(r => `<li>${ticketHTML(r, { current: r.session_id === current, wait: `ordered ${ago(r.since)} ago` })}</li>`).join("") || `<li class="none">Nothing pending.</li>`;
+  const sent = rows.filter(r => sentHere.includes(r.session_id));
+  $("q-sent").innerHTML = sent.map(r => `<li>${ticketHTML(r, { wait: "sent · now " + (STEP_TEXT[r.current_step] || "").toLowerCase() })}</li>`).join("") || `<li class="none">None this session.</li>`;
+  $("n-wait").textContent = waiting.length;
+  document.querySelectorAll(".queue .ticket").forEach(b => b.onclick = () => { location.hash = b.dataset.id; });
+  if (!current && waiting.length) { current = waiting[0].session_id; history.replaceState(null, "", "#" + current); }
+}
+async function renderCase() {
+  $("nothing").hidden = !!current; $("case").hidden = !current;
+  if (!current) return;
+  const st = (await api(`/api/cases/${current}`)).state;
+  $("c-name").textContent = st.patient?.name || "Unregistered patient";
+  const p = pw(st.pathway_id);
+  $("c-ref").textContent = `Case ${current.replace("case-", "")} · ${pathwayLabel(p)}`;
+  $("c-tests").innerHTML = (st.tests_ordered || []).map(t => `<li>${esc(t)}</li>`).join("") || "<li>None</li>";
+  const waiting = st.current_step === "TESTS_ORDERED";
+  $("form").hidden = !waiting;
+  if (!waiting && !$("ok").textContent) $("ok").textContent = "Results for this patient have already been sent. The case has moved on.";
+  if (waiting && shownFor !== current) {
+    shownFor = current; $("ok").textContent = ""; $("err").textContent = "";
+    $("r-text").value = ""; $("r-file").value = ""; $("x-file").value = "";
+    const prefer = samples.lab_reports.find(n => n.startsWith(st.pathway_id)) || "";
+    $("r-sample").value = prefer; if (prefer) $("r-sample").onchange();
+    const needs = p?.requires_imaging;
+    $("x-sample").value = needs ? (samples.xrays.find(n => n.toLowerCase().includes(st.pathway_id)) || samples.xrays[0] || "") : "";
+    $("x-hint").textContent = needs ? "This pathway includes a chest X-ray." : "Not needed for this pathway, but you can attach one.";
+  }
+}
+$("r-sample").onchange = async () => { const n = $("r-sample").value; if (n) $("r-text").value = (await api(`/api/samples/lab_reports/${encodeURIComponent(n)}`)).text; };
+$("btn-send").onclick = async () => {
+  if (busy || !current) return;
+  busy = true; $("err").textContent = ""; $("busy").hidden = false; $("btn-send").disabled = true;
+  try {
+    const fd = new FormData();
+    fd.append("session_id", current); fd.append("lab_report_text", $("r-text").value); fd.append("sample_xray", $("x-sample").value);
+    if ($("r-file").files[0]) fd.append("lab_report_file", $("r-file").files[0]);
+    if ($("x-file").files[0]) fd.append("xray", $("x-file").files[0]);
+    const r = await api("/webhooks/results_ready", { method: "POST", body: fd });
+    sentHere.push(current);
+    $("ok").textContent = r.error ? "" : "Sent. The coordinator has read the results and passed them to the doctor.";
+    if (r.error) $("err").textContent = friendly(r.error) + " The results are saved; the clinic desk can press Continue.";
+  } catch (e) { $("err").textContent = e.message; }
+  finally { busy = false; $("busy").hidden = true; $("btn-send").disabled = false; await refresh(); }
+};
+window.addEventListener("hashchange", () => { current = location.hash.slice(1) || null; $("ok").textContent = ""; refresh(); });
+
+async function refresh() { try { await renderQueue(); await renderCase(); } catch (e) { console.error(e); } }
+(async () => {
+  await loadPathways();
+  samples = await api("/api/samples").catch(() => samples);
+  samples.lab_reports.forEach(n => $("r-sample").insertAdjacentHTML("beforeend", `<option>${esc(n)}</option>`));
+  samples.xrays.forEach(n => $("x-sample").insertAdjacentHTML("beforeend", `<option>${esc(n)}</option>`));
+  await refresh();
+  setInterval(() => { if (!busy && !document.activeElement?.closest("#form")) refresh(); }, 6000);
+})();
+</script>
+</body>
+</html>

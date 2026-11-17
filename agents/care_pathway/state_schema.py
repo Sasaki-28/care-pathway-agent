@@ -70,5 +70,10 @@ def initial_state() -> dict:
         "latest_check_in": "",
         "patient_inbox": [],
         "doctor_alerts": [],
+        "lab_report_path": "",       # uploaded photo/PDF of the lab report, if any
+        # Set by the server, never shown to the AI: patient contact details and portal token.
+        "contact": {},
+        "patient_token": "",
+        "emailed_count": 0,          # how many patient_inbox messages have been emailed
         # audit entries live in per-actor keys "audit_log__<actor>" (see tools.audit)
     }

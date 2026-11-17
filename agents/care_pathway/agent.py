@@ -65,24 +65,33 @@ async def initialize_case_state(callback_context: CallbackContext):
 
 # ------------------------------------------------------------------ imaging sub-agent
 
-async def attach_xray_image(callback_context: CallbackContext, llm_request: LlmRequest):
-    """Injects the case's X-ray into the imaging agent's first user message.
+def _attach_file(llm_request: LlmRequest, path: str, label: str) -> None:
+    """Adds a file from disk (image or PDF) to the agent's first user message.
 
-    The image is stored on disk; only its path lives in session state, which keeps the
-    session small and the image out of the coordinator's context.
+    Files stay on disk; only their path lives in session state, which keeps the session
+    small and the file out of the coordinator's context.
     """
-    path = callback_context.state.get("xray_path", "")
-    if not path or not Path(path).exists():
-        return None
     mime = mimetypes.guess_type(path)[0] or "image/png"
-    image_part = types.Part.from_bytes(data=Path(path).read_bytes(), mime_type=mime)
+    part = types.Part.from_bytes(data=Path(path).read_bytes(), mime_type=mime)
     for content in llm_request.contents:
         if content.role == "user":
-            content.parts = list(content.parts or []) + [
-                types.Part.from_text(text="Attached: the patient's chest X-ray."),
-                image_part,
-            ]
+            content.parts = list(content.parts or []) + [types.Part.from_text(text=label), part]
             break
+
+
+async def attach_xray_image(callback_context: CallbackContext, llm_request: LlmRequest):
+    """Injects the case's X-ray into the imaging agent's request."""
+    path = callback_context.state.get("xray_path", "")
+    if path and Path(path).exists():
+        _attach_file(llm_request, path, "Attached: the patient's chest X-ray.")
+    return None
+
+
+async def attach_lab_report(callback_context: CallbackContext, llm_request: LlmRequest):
+    """Injects an uploaded photo or PDF of the lab report into the lab agent's request."""
+    path = callback_context.state.get("lab_report_path", "")
+    if path and Path(path).exists():
+        _attach_file(llm_request, path, "Attached: the lab report (photo or PDF).")
     return None
 
 
@@ -123,20 +132,25 @@ def lab_instruction(ctx: ReadonlyContext) -> str:
     state = ctx.state
     pathway = get_pathway(state.get("pathway_id", ""))
     focus = pathway.lab_focus if pathway else "the key results"
-    report = state.get("lab_report_text") or "(NO LAB REPORT AVAILABLE)"
+    has_file = bool(state.get("lab_report_path")) and Path(state.get("lab_report_path", "")).exists()
+    text = state.get("lab_report_text", "")
+    if has_file:
+        source = ("The lab report is ATTACHED as a photo or PDF. Read it carefully, including any "
+                  "table. Ignore names, ID numbers and addresses: do not copy them into your findings.")
+        if text.strip():
+            source += f"\n\nExtra notes typed by the lab:\n---\n{text}\n---"
+    else:
+        source = f"LAB REPORT:\n---\n{text or '(NO LAB REPORT AVAILABLE)'}\n---"
     return f"""You are a lab report reader supporting a doctor.
 
-Read the lab report below and extract {focus}.
+Read the lab report and extract {focus}.
 
 Rules:
 - Copy result values exactly as written. Never invent or estimate a value.
-- If the report is missing or unclear, use result_flag "indeterminate".
+- If the report is missing, unreadable or unclear, use result_flag "indeterminate".
 - Call record_lab_findings exactly once, then reply with one short sentence.
 
-LAB REPORT:
----
-{report}
----
+{source}
 """
 
 
@@ -146,6 +160,7 @@ lab_agent = Agent(
     description="Reads the case's lab report and records structured lab findings.",
     instruction=lab_instruction,
     tools=[record_lab_findings],
+    before_model_callback=attach_lab_report,
     before_tool_callback=enforce_step_permissions,
 )
 

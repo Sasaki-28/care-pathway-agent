@@ -1,0 +1,14 @@
+SYNTHETIC REPORT FOR DEMO USE ONLY - NOT A REAL PATIENT
+
+CITY CLINIC LABORATORY - SEROLOGY AND HAEMATOLOGY
+Date collected: 03-11-2026      Date reported: 03-11-2026
+
+Test                         Result        Unit        Reference range
+Dengue NS1 antigen           POSITIVE                  Negative
+Dengue IgM antibody          NEGATIVE                  Negative
+Platelet count               88            x10^9/L     150 - 410
+Haematocrit                  44            %           40 - 50
+Total white cell count       3.1           x10^9/L     4.0 - 11.0
+
+Remarks: NS1 positive with thrombocytopenia and leucopenia. Correlate clinically.
+Verified by: Pathologist (synthetic)
