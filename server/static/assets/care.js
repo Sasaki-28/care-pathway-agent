@@ -73,11 +73,13 @@ const ICONS = {
   lab: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 3h6M10 3v6L4 19a1.5 1.5 0 0 0 1.3 2h13.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/><path d="M7 15h10"/></svg>`,
   patient: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></svg>`,
 };
+const ROLE_TAG = { clinic: "Clinic staff", doctor: "Doctor", lab: "Lab" };
 function topbar(active, roleLine) {
-  const link = (href, key, label) => `<a href="${href}" ${active === key ? 'aria-current="page"' : ""}>${ICONS[key]}${label}</a>`;
+  if (active) document.body.dataset.role = active;
+  const link = (href, key, label) => `<a href="${href}" data-k="${key}" ${active === key ? 'aria-current="page"' : ""}>${ICONS[key]}${label}</a>`;
   $("topbar").innerHTML = `<a class="brand" href="/">Care Pathway<small>City Clinic · AI coordinator, research prototype</small></a>
     <nav class="roles" aria-label="Screens">${link("/clinic", "clinic", "Clinic desk")}${link("/doctor", "doctor", "Doctor")}${link("/lab", "lab", "Lab")}</nav>
-    ${roleLine ? `<div class="who-am-i">${roleLine}</div>` : ""}`;
+    ${roleLine ? `<div class="who-am-i"><span class="tag">${ROLE_TAG[active] || ""}</span>${roleLine}</div>` : ""}`;
 }
 
 /* ---------------- case file pieces (used by the clinic and doctor screens) ---------------- */
@@ -179,10 +181,114 @@ function ticketHTML(r, opts = {}) {
   if (r.lab_flag) chips.push(`<span class="chip ${["positive", "abnormal"].includes(r.lab_flag) ? "red" : r.lab_flag === "indeterminate" ? "" : "green"}">lab ${esc(r.lab_flag)}</span>`);
   if (r.imaging_level) chips.push(`<span class="chip ${{ high: "red", moderate: "amber", low: "green" }[r.imaging_level] || ""}">X-ray ${esc(r.imaging_level.replace(/_/g, " "))}</span>`);
   if (r.has_email) chips.push(`<span class="chip blue">email</span>`);
-  const wait = opts.wait ?? (GATE[r.current_step] ? `waiting ${ago(r.since)}` : STEP_TEXT[r.current_step]);
-  return `<button class="ticket" data-id="${esc(r.session_id)}" style="--c:${STEP_COLOR[r.current_step] || "var(--amber)"}" ${opts.current ? 'aria-current="true"' : ""}>
+  const asleep = GATE[r.current_step] && r.since;
+  const wait = opts.wait ?? (asleep ? "" : STEP_TEXT[r.current_step]);
+  const sleep = asleep ? `${opts.wait ? "" : `<span class="zz">${MOON}asleep ${esc(ago(r.since))}</span>`}<span class="sleepbar" title="How long the case has been asleep"><i style="width:${sleepPct(r.since)}%"></i></span>` : "";
+  return `<button class="ticket ${opts.cls || ""}" data-id="${esc(r.session_id)}" style="--c:${STEP_COLOR[r.current_step] || "var(--amber)"}" ${opts.current ? 'aria-current="true"' : ""}>
     <span class="n">${esc(r.name === "(intake)" ? "Unregistered" : r.name)}</span>
     <span class="m">${esc(r.pathway_short || "—")}${r.age != null ? ` · ${esc(r.age)} ${esc((r.sex || "").charAt(0))}` : ""}</span>
-    <span class="w">${esc(wait)}</span>${r.alert ? `<span class="a">${esc(r.alert)}</span>` : ""}
+    ${wait ? `<span class="w">${esc(wait)}</span>` : ""}${sleep}${r.alert ? `<span class="a">${esc(r.alert)}</span>` : ""}
     ${chips.length ? `<span class="chips">${chips.join("")}</span>` : ""}</button>`;
+}
+
+/* ---------------- sleep bars ---------------- */
+const MOON = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>`;
+function sleepPct(ts) {   // log scale: 1 min ≈ 10%, 1 h ≈ 50%, 1 day ≈ 80%, a week fills the bar
+  const d = T(ts); if (!d) return 0;
+  const min = Math.max(0, (Date.now() - d) / 60000);
+  return Math.min(100, 6 + 94 * Math.log10(1 + min) / Math.log10(1 + 10080)).toFixed(1);
+}
+
+/* ---------------- tick for successful actions ---------------- */
+const TICK = `<svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="14" cy="14" r="12"/><path d="M8.5 14.5l3.7 3.7 7.3-8"/></svg>`;
+function sayDone(el, text) { el.classList.add("tick"); el.innerHTML = TICK + `<span>${esc(text)}</span>`; }
+function clearDone(el) { el.classList.remove("tick"); el.textContent = ""; }
+
+/* ---------------- live activity strip (clinic desk) ---------------- */
+const ACTOR_COLOR = { agent: "var(--blue)", lab_agent: "var(--amber)", imaging_agent: "var(--amber)", guard: "var(--red)", email: "var(--green)", webhook: "var(--ink-3)" };
+let activitySeen = null;
+function activityHTML(rows) {
+  const items = rows.flatMap(r => (r.recent || []).map(a => ({ ...a, sid: r.session_id, name: r.name === "(intake)" ? "New patient" : r.name })))
+    .sort((a, b) => (b.ts || "").localeCompare(a.ts || "")).slice(0, 14);
+  const keys = items.map(a => a.sid + a.ts + a.actor);
+  const first = activitySeen === null; const prev = activitySeen || new Set();
+  activitySeen = new Set(keys);
+  if (!items.length) return `<li class="empty">Nothing yet. Admit a patient to see the agents at work.</li>`;
+  return items.map((a, i) => `<li data-id="${esc(a.sid)}" class="${!first && !prev.has(keys[i]) ? "fresh" : ""}" style="--c:${ACTOR_COLOR[a.actor] || "var(--rule)"}"
+    title="${esc(a.event)}"><b>${esc(hm(a.ts))}</b> · ${esc(ACTOR[a.actor] || a.actor)} · ${esc(a.name)}: ${esc(a.event)}</li>`).join("");
+}
+
+/* ---------------- agents at work: a live view of one agent run ---------------- */
+const FLOW_ICONS = {
+  agent: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l2.5 2.5M16.5 16.5L19 19M5 19l2.5-2.5M16.5 7.5L19 5"/></svg>`,
+  lab_agent: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 3h6M10 3v6L4 19a1.5 1.5 0 0 0 1.3 2h13.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/></svg>`,
+  imaging_agent: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 6v12M8 9c1 1 7 1 8 0M8 13c1 1 7 1 8 0"/></svg>`,
+  guard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>`,
+  email: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>`,
+};
+const FLOW_ROWS = [
+  ["agent", "Coordinator", "active", "Reading the case from saved state…"],
+  ["lab_agent", "Lab agent", "", "Waits to be called"],
+  ["imaging_agent", "Imaging agent", "", "Waits to be called"],
+  ["guard", "Safety guard", "watch", "Checks every action against the current step"],
+  ["email", "Patient email", "", "Only for messages the patient may see"],
+];
+function agentFlow(el, sid, title, baseline) {
+  const st = Object.fromEntries(FLOW_ROWS.map(([k, , c, t]) => [k, { c, t }]));
+  el.innerHTML = `<div class="flow-panel live"><h3><span class="live-dot"></span>${esc(title)}</h3>
+    <p class="sub">Live: each agent lights up as it acts.</p><ol class="agents">${FLOW_ROWS.map(([k, n]) =>
+      `<li class="fagent" data-k="${k}"><span class="orb">${FLOW_ICONS[k]}</span><span><span class="nm">${n}</span><span class="st"></span></span></li>`).join("")}</ol>
+    <ul class="flow-log"></ul><div class="flow-result" role="status"></div></div>`;
+  const panel = el.firstElementChild, log = panel.querySelector(".flow-log");
+  const seen = new Set(); let calls = 0, stopped = false, timer = null;
+  const key = (a) => a.actor + "|" + a.ts + "|" + a.event;
+  const paint = () => FLOW_ROWS.forEach(([k]) => {
+    const li = panel.querySelector(`[data-k="${k}"]`); li.className = "fagent " + st[k].c; li.querySelector(".st").textContent = st[k].t;
+  });
+  const set = (k, c, t) => { st[k] = { c, t }; };
+  const take = (d) => {
+    const s = d.state || {};
+    (d.transcript || []).slice(calls).forEach(m => (m.tool_calls || []).forEach(t => {
+      if (t === "lab_agent") set("lab_agent", "active", "Reading the lab report…");
+      else if (t === "imaging_agent") set("imaging_agent", "active", "Looking at the chest X-ray…");
+      else if (st.agent.c === "active") set("agent", "active", "Using " + t.replace(/_/g, " ") + "…");
+    }));
+    calls = (d.transcript || []).length;
+    for (const a of s.audit_log || []) {
+      if (seen.has(key(a))) continue; seen.add(key(a));
+      if (a.actor === "agent") set("agent", "active", a.event);
+      else if (a.actor === "lab_agent") set("lab_agent", "done", a.event);
+      else if (a.actor === "imaging_agent") set("imaging_agent", "done", a.event);
+      else if (a.actor === "guard") set("guard", "alert", a.event);
+      else if (a.actor === "email") set("email", /not sent/i.test(a.event) ? "alert" : "done", a.event);
+      else if (a.actor === "webhook") set("agent", "active", "Woken by an outside event");
+      log.insertAdjacentHTML("beforeend", `<li class="${a.actor === "guard" ? "guard" : ""}"><span>${esc(hm(a.ts))}</span><b>${esc(ACTOR[a.actor] || a.actor)}</b><span>${esc(a.event)}</span></li>`);
+      log.scrollTop = log.scrollHeight;
+    }
+    paint();
+    return s;
+  };
+  const poll = async () => { try { return take(await api(`/api/cases/${sid}`)); } catch { return null; } };
+  const loop = async () => { if (stopped) return; await poll(); timer = setTimeout(loop, 800); };
+  const ready = (async () => {
+    let d = baseline;
+    if (!d) d = await api(`/api/cases/${sid}`).catch(() => null);
+    if (d) { (d.state?.audit_log || []).forEach(a => seen.add(key(a))); calls = (d.transcript || []).length; }
+    paint(); timer = setTimeout(loop, 600);
+  })();
+  return {
+    ready,
+    async finish(error) {
+      stopped = true; clearTimeout(timer);
+      const s = await poll();
+      if (error) set("agent", "alert", "Stopped: " + String(error).slice(0, 120));
+      else set("agent", "done", st.agent.t.endsWith("…") ? "Finished" : st.agent.t);
+      for (const k of ["lab_agent", "imaging_agent"]) if (st[k].c === "") set(k, "skip", "Not needed in this step");
+      if (st.guard.c === "watch") set("guard", "done", "Nothing was blocked");
+      if (st.email.c === "") set("email", "skip", "Nothing new for the patient");
+      paint(); panel.classList.remove("live");
+      const step = s?.current_step;
+      panel.querySelector(".flow-result").textContent = error ? "" : step ? `Case is now: ${(STAMP[step] || [, step])[1]}` : "";
+    },
+  };
 }

@@ -33,6 +33,7 @@
       <div><h1>Today's board</h1><p class="summary-line" id="board-line">Every open case, by who it is waiting for.</p></div>
       <a class="btn" href="#new">+ Admit a patient</a>
     </div>
+    <div class="activity" aria-label="Live activity"><span class="lbl"><i></i>Live activity</span><ol id="activity"></ol></div>
     <div class="board" id="board"></div>
   </section>
 
@@ -63,6 +64,7 @@
           <p class="muted"><a href="#" id="fill-example" style="color:inherit">Fill an example complaint for this pathway</a></p>
           <button class="btn" id="btn-create">Admit and order tests</button>
           <div class="note" id="create-err" role="alert"></div>
+          <div id="admit-flow"></div>
         </div>
       </article>
       <aside>
@@ -131,13 +133,14 @@
 <script src="/assets/care.js"></script>
 <script>
 topbar("clinic", "You are at the clinic desk: you admit patients and can see every case.");
-let view = "board", current = null, data = null, busy = false, tab = "file", lastStep = "", link = null, symptomsTouched = false;
+let view = "board", current = null, data = null, busy = false, tab = "file", lastStep = "", link = null, symptomsTouched = false, holdFlow = 0, boardSeen = null;
 
 /* ---------------- routing: #  |  #new  |  #case-xxxx ---------------- */
 function route() {
   const h = location.hash.slice(1);
   view = h === "new" ? "admit" : h.startsWith("case-") ? "case" : "board";
-  if (view === "case" && current !== h) { current = h; tab = "file"; lastStep = ""; link = null; $("run-err").textContent = ""; }
+  if (view === "case" && current !== h) { current = h; tab = "file"; lastStep = ""; link = null; holdFlow = 0; $("run-err").textContent = ""; }
+  if (view === "admit" && !busy) $("admit-flow").innerHTML = "";
   for (const v of ["board", "admit", "case"]) $("v-" + v).hidden = view !== v;
   window.scrollTo(0, 0);
   refresh();
@@ -154,13 +157,18 @@ const COLUMNS = [
 ];
 async function renderBoard() {
   const rows = await api("/api/cases");
+  const first = boardSeen === null, prev = boardSeen || {};
+  boardSeen = Object.fromEntries(rows.map(r => [r.session_id, r.current_step]));
+  const cls = (r) => first ? "" : !(r.session_id in prev) ? "new" : prev[r.session_id] !== r.current_step ? "woke" : "";
   $("board").innerHTML = COLUMNS.map(c => {
     const items = rows.filter(r => c.steps.includes(r.current_step));
     if (c.title === "Needs attention") items.sort((a, b) => (b.current_step === "ESCALATED") - (a.current_step === "ESCALATED"));
     return `<section class="col"><h2>${c.title}<span class="count">${items.length}</span></h2><p class="hint">${c.hint}</p>
-      ${items.map(r => ticketHTML(r)).join("") || `<p class="none">None.</p>`}</section>`;
+      ${items.map(r => ticketHTML(r, { cls: cls(r) })).join("") || `<p class="none">None.</p>`}</section>`;
   }).join("");
   $("board").querySelectorAll(".ticket").forEach(b => b.onclick = () => { location.hash = b.dataset.id; });
+  $("activity").innerHTML = activityHTML(rows);
+  $("activity").querySelectorAll("li[data-id]").forEach(li => li.onclick = () => { location.hash = li.dataset.id; });
   const open = rows.filter(r => r.current_step !== "COMPLETED").length;
   const waitingDoc = rows.filter(r => r.current_step === "AWAITING_DOCTOR_REVIEW");
   const longest = waitingDoc.map(r => r.since).sort()[0];
@@ -174,16 +182,16 @@ async function renderBoard() {
 async function run(fn, errEl) {
   if (busy) return;
   if (errEl) errEl.textContent = ""; $("run-err").textContent = "";
-  let pending;
-  try { pending = Promise.resolve(fn()); } catch (e) { pending = Promise.reject(e); }
   busy = true; paintBusy();
-  try { const r = await pending; if (r && r.error) $("run-err").textContent = friendly(r.error); return r; }
-  catch (e) { (errEl && errEl.isConnected ? errEl : $("run-err")).textContent = e.message; }
-  finally { busy = false; await refresh(); }
+  const flow = agentFlow($("action"), current, "Agents at work", data);
+  await flow.ready;
+  let error = null;
+  try { const r = await fn(); if (r && r.error) { error = r.error; $("run-err").textContent = friendly(r.error); } return r; }
+  catch (e) { error = e.message; (errEl && errEl.isConnected ? errEl : $("run-err")).textContent = e.message; }
+  finally { await flow.finish(error); holdFlow = Date.now() + 8000; busy = false; await refresh(); }
 }
 function paintBusy() {
   const [cls, html] = stampHTML("", true); $("stamp").className = cls; $("stamp").innerHTML = html;
-  $("action").innerHTML = `<h3>Coordinator at work</h3><p class="lede">It may call the lab and imaging agents. A few seconds, longer if Gemini is busy.</p>`;
   document.querySelectorAll("#btn-chat, #btn-create").forEach(b => b.disabled = true);
 }
 async function renderCase() {
@@ -215,7 +223,7 @@ async function renderCase() {
       !link.email_configured ? "Email is not set up on the server yet (RESEND_API_KEY), so messages are shown here only." :
       last ? `${last.event} (${hm(last.ts)}).` : "Each message is also emailed to the patient.";
   }
-  if (!busy) renderAction(st);
+  if (!busy && Date.now() > holdFlow) renderAction(st);
   applyTab();
 }
 function renderAction(st) {
@@ -238,10 +246,9 @@ function applyTab() {
   document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
   document.querySelectorAll("[data-pane]").forEach(p => p.hidden = p.dataset.pane !== tab);
 }
-$("btn-chat").onclick = () => current && run(async () => {
-  const msg = $("chat-input").value.trim(); if (!msg) return;
-  const r = await postJSON(`/api/cases/${current}/chat`, { message: msg }); $("chat-input").value = ""; return r;
-}, $("chat-err"));
+$("btn-chat").onclick = () => { if (!current || !$("chat-input").value.trim()) return;
+  const msg = $("chat-input").value.trim();
+  run(async () => { const r = await postJSON(`/api/cases/${current}/chat`, { message: msg }); $("chat-input").value = ""; return r; }, $("chat-err")); };
 $("pt-copy").onclick = async () => {
   if (!link) return;
   try { await navigator.clipboard.writeText(location.origin + link.path); $("pt-copy").textContent = "Copied"; }
@@ -268,12 +275,20 @@ $("btn-triage").onclick = async () => {
 $("btn-create").onclick = async () => {
   if (busy) return;
   $("create-err").textContent = ""; busy = true; $("btn-create").disabled = true; $("btn-create").textContent = "Coordinator is admitting…";
+  const sid = "case-" + Array.from(crypto.getRandomValues(new Uint8Array(4)), b => b.toString(16).padStart(2, "0")).join("");
+  const body = { name: $("f-name").value, age: +$("f-age").value, sex: $("f-sex").value, phone: $("f-phone").value,
+    email: $("f-email").value, symptoms: $("f-symptoms").value, pathway: $("f-pathway").value, session_id: sid };
+  let flow = null;
   try {
-    const r = await postJSON("/api/cases", { name: $("f-name").value, age: +$("f-age").value, sex: $("f-sex").value, phone: $("f-phone").value,
-      email: $("f-email").value, symptoms: $("f-symptoms").value, pathway: $("f-pathway").value });
+    if (!body.name.trim() || !body.symptoms.trim()) throw new Error("Enter the patient's name and complaint.");
+    flow = agentFlow($("admit-flow"), sid, "Agents at work: admitting " + body.name);
+    await flow.ready;
+    const r = await postJSON("/api/cases", body);
+    await flow.finish(r.error);
+    await new Promise(res => setTimeout(res, 1800));     // a moment to see what the agents did
     busy = false; location.hash = r.session_id;
     if (r.error) setTimeout(() => { $("run-err").textContent = friendly(r.error); }, 300);
-  } catch (e) { $("create-err").textContent = e.message; }
+  } catch (e) { if (flow) await flow.finish(e.message); $("create-err").textContent = e.message; }
   finally { busy = false; $("btn-create").disabled = false; $("btn-create").textContent = "Admit and order tests"; }
 };
 
@@ -282,7 +297,7 @@ async function refresh() {
   try {
     if (view === "board") await renderBoard();
     if (view === "case" && current) await renderCase();
-    document.querySelectorAll("#btn-chat").forEach(b => b.disabled = busy);
+    document.querySelectorAll("#btn-chat, #btn-create").forEach(b => b.disabled = busy);
   } catch (e) { console.error(e); if (view === "case") $("run-err").textContent = e.message; }
 }
 (async () => {

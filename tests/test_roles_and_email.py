@@ -276,3 +276,18 @@ def test_duplicate_pathway_ids_are_rejected(tmp_path):
     f.write_text(json.dumps(raw))
     with pytest.raises(ValueError, match="Duplicate"):
         load_pathways(f)
+
+
+async def test_screen_can_choose_the_case_id_and_board_gets_recent_activity(client):
+    r = await client.post("/api/cases", json={
+        "name": "Id Patient", "age": 30, "sex": "Female", "symptoms": "cough", "pathway": "tb",
+        "session_id": "case-0badc0de"})
+    assert r.status_code == 200 and r.json()["session_id"] == "case-0badc0de"
+    again = await client.post("/api/cases", json={
+        "name": "X", "age": 30, "sex": "Female", "symptoms": "cough", "pathway": "tb", "session_id": "case-0badc0de"})
+    assert again.status_code == 409
+    bad = await client.post("/api/cases", json={
+        "name": "X", "age": 30, "sex": "Female", "symptoms": "cough", "pathway": "tb", "session_id": "../etc"})
+    assert bad.status_code == 422
+    row = next(r for r in (await client.get("/api/cases")).json() if r["session_id"] == "case-0badc0de")
+    assert row["recent"] and row["recent"][-1]["event"].startswith("Ordered tests")

@@ -22,7 +22,10 @@
 
     <section class="pt-card" aria-labelledby="h-status">
       <h2 id="h-status">Where things stand</h2>
-      <p class="pt-status" id="status"></p>
+      <div class="pt-now">
+        <div class="ring" id="ring" aria-hidden="true"></div>
+        <p class="pt-status" id="status"></p>
+      </div>
       <div class="pt-steps" id="steps"></div>
     </section>
 
@@ -50,7 +53,7 @@ const $ = (id) => document.getElementById(id);
 const sid = decodeURIComponent(location.pathname.split("/").pop());
 const token = new URLSearchParams(location.search).get("t") || "";
 const qs = `?t=${encodeURIComponent(token)}`;
-const KIND = { instructions: ["Your tests", ""], doctor_approved_plan: ["From your doctor", "ok"], follow_up: ["Reply to your check-in", ""], escalation_notice: ["Care team", "alert"] };
+const KIND = { instructions: ["Your tests", "", "🧪"], doctor_approved_plan: ["From your doctor", "ok", "🩺"], follow_up: ["Reply to your check-in", "", "💬"], escalation_notice: ["Care team", "alert", "⚠️"] };
 const LABELS = { on_track: "Feeling fine", warning: "Feeling worse", finished: "Finished my course" };
 const STEPS = ["Tests", "Doctor review", "Treatment", "Done"];
 const STAGE = { INTAKE: 0, TESTS_ORDERED: 0, RESULTS_RECEIVED: 1, AWAITING_DOCTOR_REVIEW: 1, DOCTOR_APPROVED: 1, TREATMENT_ACTIVE: 2, FOLLOW_UP_DUE: 2, ESCALATED: 2, COMPLETED: 4 };
@@ -64,10 +67,17 @@ async function load() {
   if (!res.ok) { $("bad").hidden = false; $("ok").hidden = true; return; }
   const v = await res.json();
   $("ok").hidden = false;
-  $("hello").textContent = v.first_name ? `Hello, ${v.first_name}` : "Hello";
+  const hr = new Date().getHours(), part = hr >= 5 && hr < 12 ? "Good morning" : hr >= 12 && hr < 17 ? "Good afternoon" : "Good evening";
+  $("hello").textContent = v.first_name ? `${part}, ${v.first_name}` : part;
   $("plan").textContent = v.care_plan ? `Care plan: ${v.care_plan}` : "";
   $("status").textContent = v.status;
   const stage = STAGE[v.step] ?? 0;
+  const pct = { INTAKE: 8, TESTS_ORDERED: 22, RESULTS_RECEIVED: 42, AWAITING_DOCTOR_REVIEW: 48, DOCTOR_APPROVED: 66, TREATMENT_ACTIVE: 72, FOLLOW_UP_DUE: 78, ESCALATED: 72, COMPLETED: 100 }[v.step] ?? 8;
+  const tone = v.step === "ESCALATED" ? "alert" : v.step === "COMPLETED" ? "done" : "";
+  const centre = v.step === "COMPLETED" ? "Done" : v.step === "ESCALATED" ? "Alert" : `${Math.min(stage + 1, 4)}/4`;
+  $("ring").className = "ring " + tone;
+  $("ring").innerHTML = `<svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="18" class="track"/><circle cx="22" cy="22" r="18" class="bar"
+    style="stroke-dasharray:${(113.1 * pct / 100).toFixed(1)} 113.1"/></svg><span>${centre}</span>`;
   $("steps").innerHTML = STEPS.map((s, i) => {
     const cls = v.step === "ESCALATED" && i === 2 ? "alert" : i < stage ? "done" : i === stage ? "now" : "";
     return `<div class="${cls}">${v.step === "ESCALATED" && i === 2 ? "Doctor alerted" : s}</div>`;
@@ -76,8 +86,8 @@ async function load() {
   const locked = v.step !== "TREATMENT_ACTIVE" && !["ESCALATED", "COMPLETED"].includes(v.step) && !msgs.some(m => m.kind === "doctor_approved_plan")
     ? `<div class="pt-locked">Your results will appear here after your doctor has reviewed them.</div>` : "";
   $("msgs").innerHTML = msgs.slice().reverse().map(m => {
-    const [k, c] = KIND[m.kind] || ["Message", ""];
-    return `<div class="bubble ${c}"><span class="k">${k} · ${esc(when(m.ts))}</span>${esc(m.text)}</div>`;
+    const [k, c, icon] = KIND[m.kind] || ["Message", "", "✉️"];
+    return `<div class="bubble ${c}"><span class="ic" aria-hidden="true">${icon}</span><div><span class="k">${k} · ${esc(when(m.ts))}</span>${esc(m.text)}</div></div>`;
   }).join("") + locked || `<p style="color:#85918F">No messages yet.</p>`;
   $("checkin").hidden = !v.can_check_in;
   if (v.can_check_in && !examplesShown) {

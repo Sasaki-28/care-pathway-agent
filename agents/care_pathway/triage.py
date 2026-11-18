@@ -45,7 +45,7 @@ def _prompt(symptoms: str) -> str:
     return (
         "You help clinic staff choose which care pathway to start for a new patient. You do not "
         "diagnose. Pick the single best-fitting pathway from the list for the presenting complaint, "
-        "or an empty pathway_id if none fits. Give a one-sentence reason that quotes the symptoms "
+        "or pathway_id \"none\" if none fits. Give a one-sentence reason that quotes the symptoms "
         "you relied on, for the staff member to check.\n\n"
         f"Pathways:\n{options}\n\nPresenting complaint: {symptoms}"
     )
@@ -60,7 +60,7 @@ async def suggest_pathway(symptoms: str) -> dict:
     schema = types.Schema(
         type=types.Type.OBJECT,
         properties={
-            "pathway_id": types.Schema(type=types.Type.STRING, enum=[*PATHWAYS, ""]),
+            "pathway_id": types.Schema(type=types.Type.STRING, enum=[*PATHWAYS, "none"]),  # "none", not "": Gemini rejects empty enum values
             "confidence": types.Schema(type=types.Type.STRING, enum=["high", "medium", "low"]),
             "reason": types.Schema(type=types.Type.STRING),
         },
@@ -75,6 +75,8 @@ async def suggest_pathway(symptoms: str) -> dict:
                                                    response_schema=schema, temperature=0),
             )
             data = json.loads(resp.text)
+            if data.get("pathway_id") == "none":
+                data["pathway_id"] = ""
             if data.get("pathway_id", "") not in (*PATHWAYS, ""):
                 raise ValueError(f"unknown pathway {data.get('pathway_id')!r}")
             return {"pathway_id": data["pathway_id"], "confidence": data.get("confidence", "low"),

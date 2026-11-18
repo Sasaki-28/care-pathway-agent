@@ -172,6 +172,8 @@ def _summary_row(session) -> dict:
         "alert": alerts[-1]["summary"] if alerts else "",
         "has_email": bool((st.get("contact") or {}).get("email")),
         "last_update": session.last_update_time,
+        # the latest few audit lines, for the clinic desk's live activity strip
+        "recent": [{"actor": a.get("actor"), "event": a.get("event"), "ts": a.get("ts")} for a in log[-4:]],
     }
 
 
@@ -237,6 +239,8 @@ class NewCase(BaseModel):
     email: str = ""
     symptoms: str = Field(min_length=1)
     pathway: str = "tb"
+    # Optional id chosen by the screen, so it can follow the agents live while the case is created.
+    session_id: str = Field("", pattern=r"^(case-[0-9a-f]{8})?$")
 
     @field_validator("pathway")
     @classmethod
@@ -259,9 +263,11 @@ async def create_case(body: NewCase):
     state = initial_state()
     state["patient_token"] = secrets.token_urlsafe(16)
     state["contact"] = {"email": body.email} if body.email else {}
+    session_id = body.session_id or f"case-{uuid.uuid4().hex[:8]}"
+    if body.session_id and await cases.get(session_id) is not None:
+        raise HTTPException(409, "That case id is already taken; try again.")
     session = await session_service.create_session(
-        app_name=APP_NAME, user_id=USER_ID, state=state,
-        session_id=f"case-{uuid.uuid4().hex[:8]}",
+        app_name=APP_NAME, user_id=USER_ID, state=state, session_id=session_id,
     )
     # The email address is never sent to the AI; it stays with the server for notifications.
     message = (

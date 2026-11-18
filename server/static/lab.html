@@ -58,10 +58,10 @@
             </div>
           </div>
           <button class="btn" id="btn-send">Send results to the clinic</button>
-          <div class="busy-line" id="busy" hidden><svg class="pen" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14l1-4 8-8 3 3-8 8z" fill="currentColor"/></svg>The lab and imaging agents are reading the results…</div>
           <div class="note" id="err" role="alert"></div>
         </div>
         <div class="okay" id="ok" role="status"></div>
+        <div id="flow"></div>
       </section>
     </article>
   </div>
@@ -70,7 +70,7 @@
 <script src="/assets/care.js"></script>
 <script>
 topbar("lab", "You are the lab: you send results back. You never see the AI's findings or the doctor's decision.");
-let current = location.hash.slice(1) || null, busy = false, shownFor = "", samples = { xrays: [], lab_reports: [] };
+let current = location.hash.slice(1) || null, busy = false, shownFor = "", caseData = null, samples = { xrays: [], lab_reports: [] };
 const sentHere = [];
 
 async function renderQueue() {
@@ -86,7 +86,8 @@ async function renderQueue() {
 async function renderCase() {
   $("nothing").hidden = !!current; $("case").hidden = !current;
   if (!current) return;
-  const st = (await api(`/api/cases/${current}`)).state;
+  caseData = await api(`/api/cases/${current}`);
+  const st = caseData.state;
   $("c-name").textContent = st.patient?.name || "Unregistered patient";
   const p = pw(st.pathway_id);
   $("c-ref").textContent = `Case ${current.replace("case-", "")} · ${pathwayLabel(p)}`;
@@ -95,7 +96,7 @@ async function renderCase() {
   $("form").hidden = !waiting;
   if (!waiting && !$("ok").textContent) $("ok").textContent = "Results for this patient have already been sent. The case has moved on.";
   if (waiting && shownFor !== current) {
-    shownFor = current; $("ok").textContent = ""; $("err").textContent = "";
+    shownFor = current; clearDone($("ok")); $("err").textContent = ""; $("flow").innerHTML = "";
     $("r-text").value = ""; $("r-file").value = ""; $("x-file").value = "";
     const prefer = samples.lab_reports.find(n => n.startsWith(st.pathway_id)) || "";
     $("r-sample").value = prefer; if (prefer) $("r-sample").onchange();
@@ -107,7 +108,9 @@ async function renderCase() {
 $("r-sample").onchange = async () => { const n = $("r-sample").value; if (n) $("r-text").value = (await api(`/api/samples/lab_reports/${encodeURIComponent(n)}`)).text; };
 $("btn-send").onclick = async () => {
   if (busy || !current) return;
-  busy = true; $("err").textContent = ""; $("busy").hidden = false; $("btn-send").disabled = true;
+  busy = true; $("err").textContent = ""; $("btn-send").disabled = true;
+  const flow = agentFlow($("flow"), current, "Agents at work on " + ($("c-name").textContent || "this case"), caseData);
+  await flow.ready;
   try {
     const fd = new FormData();
     fd.append("session_id", current); fd.append("lab_report_text", $("r-text").value); fd.append("sample_xray", $("x-sample").value);
@@ -115,12 +118,13 @@ $("btn-send").onclick = async () => {
     if ($("x-file").files[0]) fd.append("xray", $("x-file").files[0]);
     const r = await api("/webhooks/results_ready", { method: "POST", body: fd });
     sentHere.push(current);
-    $("ok").textContent = r.error ? "" : "Sent. The coordinator has read the results and passed them to the doctor.";
+    await flow.finish(r.error);
     if (r.error) $("err").textContent = friendly(r.error) + " The results are saved; the clinic desk can press Continue.";
-  } catch (e) { $("err").textContent = e.message; }
-  finally { busy = false; $("busy").hidden = true; $("btn-send").disabled = false; await refresh(); }
+    else sayDone($("ok"), "Sent. The coordinator has read the results and passed them to the doctor.");
+  } catch (e) { await flow.finish(e.message); $("err").textContent = e.message; }
+  finally { busy = false; $("btn-send").disabled = false; await refresh(); }
 };
-window.addEventListener("hashchange", () => { current = location.hash.slice(1) || null; $("ok").textContent = ""; refresh(); });
+window.addEventListener("hashchange", () => { current = location.hash.slice(1) || null; clearDone($("ok")); $("flow").innerHTML = ""; refresh(); });
 
 async function refresh() { try { await renderQueue(); await renderCase(); } catch (e) { console.error(e); } }
 (async () => {
